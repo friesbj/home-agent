@@ -10,6 +10,8 @@
 
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { appConfig } from '$lib/config/app-config.svelte';
+	import { discoverTools } from '$lib/home/api';
 	import { validateMcpUrl, type McpUrlPolicy } from '$lib/config/mcp-url';
 	import {
 		CONFIRMABLE_DOMAINS,
@@ -60,6 +62,39 @@
 		homeAssistantToken: ''
 	});
 	let errors = $state<Record<string, string>>({});
+	let testing = $state(false);
+	let testResult = $state<{ ok: boolean; message: string } | null>(null);
+
+	async function testConnection() {
+		const mcp = validateMcpUrl(draft.mcp.url, mcpUrlPolicy);
+		if (!mcp.ok) {
+			errors = { ...errors, 'mcp-url': mcp.error };
+			testResult = { ok: false, message: mcp.error };
+			return;
+		}
+		testing = true;
+		testResult = null;
+		try {
+			const token =
+				draft.mcp.authType === 'bearer'
+					? secretInputs.mcpToken.trim() || appConfig.getSecret('mcpToken')
+					: undefined;
+			const result = await discoverTools({
+				url: mcp.url.href,
+				transport: draft.mcp.transport,
+				token
+			});
+			const count = (kind: string) => result.tools.filter((tool) => tool.kind === kind).length;
+			testResult = {
+				ok: true,
+				message: `Connected${result.serverName ? ` to ${result.serverName}` : ''}: ${count('read')} read-only and ${count('mutation')} control tools available, ${count('blocked')} blocked by policy.`
+			};
+		} catch (error) {
+			testResult = { ok: false, message: (error as Error).message || 'Connection failed.' };
+		} finally {
+			testing = false;
+		}
+	}
 
 	const domainLabels: Record<string, string> = {
 		light: 'Lights',
@@ -275,8 +310,29 @@
 			</select>
 		</div>
 		{#if draft.mcp.authType === 'bearer'}
-			{@render secretField('mcpToken', 'mcp-token', '')}
+			{@render secretField(
+				'mcpToken',
+				'mcp-token',
+				'Use a Home Assistant long-lived access token.'
+			)}
 		{/if}
+		<div class="space-y-2">
+			<button
+				type="button"
+				class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 disabled:opacity-50"
+				onclick={testConnection}
+				disabled={testing}
+			>
+				{testing ? 'Testing…' : 'Test connection'}
+			</button>
+			<div role="status" aria-live="polite" class="text-sm">
+				{#if testResult?.ok}
+					<p class="text-emerald-800">{testResult.message}</p>
+				{:else if testResult}
+					<p class="text-red-700">{testResult.message}</p>
+				{/if}
+			</div>
+		</div>
 	</fieldset>
 
 	<fieldset class="space-y-4">
