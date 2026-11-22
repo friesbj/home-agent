@@ -40,6 +40,13 @@ function createSchema(dev: boolean) {
 			.pipe(z.string().regex(/^[a-z0-9][a-z0-9._-]{0,63}$/i)),
 		MCP_ALLOW_PRIVATE_HOSTS: booleanFlag(dev),
 		MCP_ALLOW_INSECURE_HTTP: booleanFlag(dev),
+		MCP_ALLOW_MUTATIONS: booleanFlag(true),
+		MCP_TIMEOUT_MS: positiveInt(15_000, 120_000),
+		TOOL_APPROVAL_SECRET: z
+			.string()
+			.optional()
+			.transform((value) => value?.trim() || undefined)
+			.pipe(z.string().min(32, 'must be at least 32 characters').optional()),
 		ALLOWED_ORIGINS: z
 			.string()
 			.optional()
@@ -61,6 +68,10 @@ export interface ServerEnv {
 	openaiApiKey?: string;
 	textModel: string;
 	mcpUrlPolicy: McpUrlPolicy;
+	allowMutations: boolean;
+	mcpTimeoutMs: number;
+	/** HMAC secret for signed tool approvals; random per process when not configured. */
+	toolApprovalSecret: string;
 	allowedOrigins: string[];
 	rateLimit: { maxRequests: number; windowMs: number };
 	requestTimeoutMs: number;
@@ -93,6 +104,11 @@ export function parseServerEnv(
 			allowPrivateHosts: env.MCP_ALLOW_PRIVATE_HOSTS,
 			allowInsecureHttp: env.MCP_ALLOW_INSECURE_HTTP
 		},
+		allowMutations: env.MCP_ALLOW_MUTATIONS,
+		mcpTimeoutMs: env.MCP_TIMEOUT_MS,
+		toolApprovalSecret:
+			env.TOOL_APPROVAL_SECRET ??
+			Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'),
 		allowedOrigins: env.ALLOWED_ORIGINS.map((origin) => new URL(origin).origin),
 		rateLimit: { maxRequests: env.RATE_LIMIT_MAX_REQUESTS, windowMs: env.RATE_LIMIT_WINDOW_MS },
 		requestTimeoutMs: env.REQUEST_TIMEOUT_MS,

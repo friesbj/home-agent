@@ -21,6 +21,7 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"devDependencies": {
+		"@ai-sdk/mcp": "^2.0.102",
 		"@ai-sdk/svelte": "^5.0.179",
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
