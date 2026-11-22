@@ -46,4 +46,16 @@ describe('GetLiveContext parsing', () => {
 		const areas = groupByArea(parseLiveContext(SAMPLE));
 		expect(areas.map((area) => area.name)).toEqual(['Kitchen', 'Living Room', 'Other']);
 	});
+
+	it('sorts numbered areas naturally', () => {
+		const entity = (area: string) => ({
+			name: 'Lamp',
+			domain: 'light',
+			state: 'off',
+			areas: [area],
+			attributes: {}
+		});
+		const areas = groupByArea([entity('Room 10'), entity('Room 2'), entity('Room 1')]);
+		expect(areas.map((area) => area.name)).toEqual(['Room 1', 'Room 2', 'Room 10']);
+	});
 });

@@ -14,7 +14,14 @@ export const FAKE_LIVE_CONTEXT = `Live Context: An overview of the areas and the
   domain: climate
   state: heat
   areas: Living Room
-`;
+${Array.from(
+	{ length: 40 },
+	(_, index) => `- names: Lamp ${index + 1}
+  domain: light
+  state: 'off'
+  areas: Room ${Math.floor(index / 4) + 1}
+`
+).join('')}`;
 
 const TOOLS = [
 	{

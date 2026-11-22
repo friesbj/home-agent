@@ -95,6 +95,9 @@ function assign(entity: HomeEntity, key: string, value: string) {
 	}
 }
 
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+const naturalCompare = (a: string, b: string) => collator.compare(a, b);
+
 export function groupByArea(entities: HomeEntity[]): HomeArea[] {
 	const areas = new Map<string, HomeEntity[]>();
 	for (const entity of entities) {
@@ -104,13 +107,13 @@ export function groupByArea(entities: HomeEntity[]): HomeArea[] {
 	return [...areas.entries()]
 		.map(([name, list]) => ({
 			name,
-			entities: list.sort((a, b) => a.name.localeCompare(b.name))
+			entities: list.sort((a, b) => naturalCompare(a.name, b.name))
 		}))
 		.sort((a, b) =>
 			a.name === UNASSIGNED_AREA
 				? 1
 				: b.name === UNASSIGNED_AREA
 					? -1
-					: a.name.localeCompare(b.name)
+					: naturalCompare(a.name, b.name)
 		);
 }

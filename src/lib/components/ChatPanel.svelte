@@ -72,10 +72,10 @@
 </script>
 
 <section
-	class="flex min-h-[60vh] flex-col rounded-lg border border-stone-200 bg-white"
+	class="flex h-full min-h-0 flex-col rounded-lg border border-stone-200 bg-white"
 	aria-label="Chat"
 >
-	<div {@attach autoscroll} class="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+	<div {@attach autoscroll} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
 		{#if chat.messages.length === 0}
 			<div class="space-y-3 text-stone-600">
 				<p>Ask about your home or tell me what to change.</p>
@@ -129,7 +129,7 @@
 		{/if}
 	</div>
 
-	<form class="flex items-end gap-2 border-t border-stone-200 p-3" onsubmit={handleSubmit}>
+	<form class="flex shrink-0 items-end gap-2 border-t border-stone-200 p-3" onsubmit={handleSubmit}>
 		<label for="chat-input" class="sr-only">Message</label>
 		<textarea
 			id="chat-input"
