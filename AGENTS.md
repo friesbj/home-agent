@@ -48,6 +48,9 @@ This section is the implementation plan for future coding sessions.
 - The default private-MVP preference is confirmation for every mutating action.
 - Home Assistant entity updates use WebSocket events.
 - The backend reasoning model and GPT-Live voice are selectable during onboarding.
+- The Home Assistant MCP server is the official Home Assistant "Model Context Protocol" integration (Assist "Device control" tools, long-lived access token as bearer token).
+- The server-side MCP client is `@ai-sdk/mcp`. Tool exposure is an explicit allowlist in `src/lib/home/ha-policy.ts`; unknown tools are never exposed.
+- Mutating-action confirmations use AI SDK tool approvals with HMAC-signed approval requests (`TOOL_APPROVAL_SECRET`), so browser-side approvals cannot be forged or altered.
 
 # Non-Negotiable Requirements
 

@@ -1,4 +1,4 @@
-﻿# Home Agent
+# Home Agent
 
 Home Agent is a SvelteKit smart-home application for controlling Home Assistant through natural language and text.
 
@@ -6,7 +6,7 @@ The application connects a text or GPT-Live chat interface with a server-side MC
 
 ## Current Status
 
-The project is in Phase 1 (Foundation): onboarding, Settings, browser-storage configuration, MCP URL policy, and API protections are implemented. MCP connectivity starts in Phase 2.
+Phases 1 (Foundation) and 2 (Text MVP) are implemented: onboarding and Settings, a text chat connected to Home Assistant through a server-side MCP gateway, an area/entity overview, visible tool calls, and server-enforced confirmation of device changes. GPT-Live voice follows in Phase 3.
 
 - Phase 1: Foundation and onboarding
 - Phase 2: Text chat with MCP and read-only Home Assistant queries
@@ -57,7 +57,35 @@ The private MVP must not be operated as a broadly public service. Use VPN, passw
 - Secrets, sessions, and user permissions must be implemented server-side before a public release.
 - Better Auth/SQLite is not used by the browser-first MVP; the placeholder wiring was removed and authentication is planned for the public release (M5).
 - `/api/*` requests must be same-origin (or listed in `ALLOWED_ORIGINS`), are rate limited per client, have a body-size limit, and model calls have a total timeout.
-- MCP addresses are validated (https/http policy, no URL credentials, private/loopback hosts only when allowed, link-local always blocked).
+- MCP addresses are validated (https/http policy, no URL credentials, private/loopback hosts only when allowed, link-local always blocked). The server re-validates them, checks the addresses the hostname resolves to, never follows redirects, and only talks to the validated origin.
+
+## Home Assistant MCP Server
+
+Home Agent targets the official Home Assistant **Model Context Protocol** integration (`/api/mcp`).
+
+1. In Home Assistant, enable the integration under **Settings > System > AI** and copy the MCP URL. The individual **Device control** URL (`/api/mcp/assist`) is recommended because it only exposes entities you share with voice assistants.
+2. Create a dedicated, least-privilege long-lived access token (profile > Security) and enter it as the MCP bearer token. OAuth is not supported.
+3. Use **Test connection** in onboarding or Settings to see how many tools are available and how many are blocked.
+
+The gateway only exposes an allowlist of Assist tools (`src/lib/home/ha-policy.ts`):
+
+| Kind | Tools | Behavior |
+| --- | --- | --- |
+| Read | `GetLiveContext`, `GetDateTime`, `HassGetState`, `HassGetWeather`, `HassClimateGetTemperature` | Run without confirmation |
+| Change | `HassTurnOn`, `HassTurnOff` (with `domain`), `HassLightSet`, `HassClimateSetTemperature` | Only for `light`, `climate`, `scene`, `script`; confirmation according to the Settings policy |
+| Blocked | Everything else, including the administrator "Call action" tool | Never shown to the model |
+
+Confirmations are enforced on the server: approval requests are HMAC-signed (`TOOL_APPROVAL_SECRET`), so a modified or forged approval from the browser is rejected, and every tool call is re-checked against the allowlist before it is executed. `MCP_ALLOW_MUTATIONS=false` turns off all device changes.
+
+## API Endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/chat` | Streaming text chat with Home Assistant tools and tool approvals |
+| `POST /api/mcp/discover` | Connection test; lists MCP tools with their allowlist classification |
+| `POST /api/home/state` | Read-only area/entity snapshot from `GetLiveContext` |
+
+The browser sends the MCP address in the JSON body and the stored credentials in the `x-openai-api-key` and `x-mcp-token` headers to this application's own server only.
 
 ## Local Development
 
@@ -97,6 +125,9 @@ Copy `.env.example` to `.env`. All variables are optional and validated at serve
 | `OPENAI_TEXT_MODEL` | `gpt-6-astra` | Default text chat model |
 | `MCP_ALLOW_PRIVATE_HOSTS` | `true` in dev, `false` in production | Allow loopback/private-network MCP hosts |
 | `MCP_ALLOW_INSECURE_HTTP` | `true` in dev, `false` in production | Allow `http://` MCP addresses |
+| `MCP_ALLOW_MUTATIONS` | `true` | Expose device-changing tools at all |
+| `MCP_TIMEOUT_MS` | `15000` | MCP connection and tool-call timeout |
+| `TOOL_APPROVAL_SECRET` | random per process | HMAC secret (≥ 32 chars) for signed tool approvals |
 | `ALLOWED_ORIGINS` | none | Extra origins allowed to call `/api` |
 | `RATE_LIMIT_MAX_REQUESTS` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000` | Per-client API rate limit |
 | `REQUEST_TIMEOUT_MS` | `60000` | Maximum model request duration |
@@ -110,6 +141,8 @@ Browser Storage keys are versioned under the `home-agent.` prefix: `home-agent.s
 - **Component tests:** `src/**/*.svelte.spec.ts`, run in Chromium via `vitest-browser-svelte` (`npx vitest run --project client`).
 - **End-to-end tests:** `e2e/*.test.ts` with Playwright against the production build (`npm run test:e2e`).
 - Never call real OpenAI, MCP, or Home Assistant services from automated tests; use mocks.
+  - Chat tests drive `streamChat` with `MockLanguageModelV4` via `src/lib/server/chat/chat-test-helpers.ts`.
+  - `src/lib/server/mcp/fake-ha-mcp-server.ts` is a fake Home Assistant MCP server (Streamable HTTP, token `e2e-mcp-token`) used by integration tests and, via `e2e/support/fake-mcp-server.ts`, by Playwright.
 - Install browser binaries once with `npx playwright install chromium`.
 
 ## Known Start Requirements
