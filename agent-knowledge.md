@@ -4,6 +4,24 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-22
 
+### 2026-11-22T15:09:17+01:00
+
+- **Commit workflow:** the user requires traceable, modular git history so recent changes can be reverted cleanly. `.github/skills/commit-work/SKILL.md` defines it: verified, self-contained Conventional Commits (tests with code, deps with lockfile, no mixed formatting), `Milestone:` trailer, Copilot co-author trailer, explicit path staging, no push/history rewrite without request.
+
+### 2026-11-22T15:03:37+01:00
+
+- **M1 complete:** Foundation implemented and verified (check, unit, component, e2e).
+- **Better Auth removed:** wiring, demo routes, placeholder schema, and `better-auth`/`@better-auth/cli` packages were removed. Drizzle/SQLite files remain reserved for later; `src/lib/server/db` is unused.
+- **SPA rendering:** `src/routes/+layout.ts` sets `ssr = false` and redirects to `/onboarding` until `onboardingCompleted` is stored. `+layout.server.ts` supplies `mcpUrlPolicy` and `serverHasOpenAiKey`.
+- **Browser storage:** `src/lib/config/settings.ts` owns zod schemas and `{ version: 1, data }` envelopes under `home-agent.settings.v1`, `home-agent.confirmation-policy.v1`, `home-agent.secrets.v1`. Invalid/unknown data falls back to defaults. `app-config.svelte.ts` is the reactive store; secrets are read only via `getSecret`.
+- **OpenAI key flow:** the browser sends its stored key in the `x-openai-api-key` header (`src/lib/config/headers.ts`) to `/api/chat`; the server falls back to `OPENAI_API_KEY`. Chat model comes from the request body (validated) or `OPENAI_TEXT_MODEL`.
+- **MCP URL policy:** `src/lib/config/mcp-url.ts` (shared). Link-local/unspecified always blocked; private/loopback hosts and `http:` controlled by `MCP_ALLOW_PRIVATE_HOSTS`/`MCP_ALLOW_INSECURE_HTTP` (default true in dev, false in prod). No DNS resolution yet; the M2 gateway must re-validate server-side and check resolved addresses.
+- **Env validation:** `src/lib/server/env-schema.ts` (pure, testable) + `env.ts` (cached `getServerEnv()`); `hooks.server.ts` `init` fails fast on invalid config.
+- **API protection:** `hooks.server.ts` applies same-origin/`ALLOWED_ORIGINS` checks, body-size limit, and an in-memory per-IP fixed-window rate limiter to `/api/*`, and sets `x-request-id`. Chat uses `abortSignal` + `timeout.totalMs`.
+- **Confirmation preference:** `requiresConfirmation()` treats `mode: 'none'` as confirm-all unless `acknowledgedNoConfirmationRisk` is true.
+- **Testing:** unit `src/**/*.spec.ts` (Node), component `src/**/*.svelte.spec.ts` (Chromium), e2e `e2e/*.test.ts` against the production build. Playwright Chromium is now installed locally.
+- **Prettier:** pre-existing Markdown files (README, context files, skills) fail `prettier --check`; not yet reformatted.
+
 ### 2026-11-22T08:03:48+01:00
 
 - **Confirmation settings:** mutating-action confirmation is configurable in onboarding and a later Settings page.

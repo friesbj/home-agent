@@ -33,22 +33,25 @@ This file tracks project milestones and agent-owned implementation todos.
 
 ## M1 - Foundation
 
-- [ ] Repair or replace the placeholder Better Auth database schema if it remains in use.
-- [ ] Establish a browser-storage configuration module with versioned keys and redaction-safe helpers.
-- [ ] Implement onboarding for MCP address, transport, credentials, voice, and model preferences.
-- [ ] Implement the dedicated Settings flow for editing credentials, MCP address, voice/model, confirmation policy, favorites, and reset behavior.
-- [ ] Add MCP URL validation and an HTTPS/localhost development policy.
-- [ ] Replace the leaked/placeholder API-key setup with secure configuration review.
-- [ ] Protect public server routes and add authentication/session ownership.
-- [ ] Add rate limiting and request-duration limits.
-- [ ] Add unit/component test conventions.
-- [ ] Validate configuration and environment values at startup.
+- [x] Repair or replace the placeholder Better Auth database schema if it remains in use. (Removed: Better Auth wiring, demo routes, and placeholder schema; auth deferred to M5.)
+- [x] Establish a browser-storage configuration module with versioned keys and redaction-safe helpers.
+- [x] Implement onboarding for MCP address, transport, credentials, voice, and model preferences.
+- [x] Implement the dedicated Settings flow for editing credentials, MCP address, voice/model, confirmation policy, favorites, and reset behavior.
+- [x] Add MCP URL validation and an HTTPS/localhost development policy.
+- [x] Replace the leaked/placeholder API-key setup with secure configuration review.
+  - The previously exposed key in the local `.env` must still be revoked by the user (not verifiable by agents).
+- [x] Protect public server routes with same-origin checks, rate limits, and body-size limits.
+  - Authentication/session ownership is deferred to M5 per the recorded product decision.
+- [x] Add rate limiting and request-duration limits.
+- [x] Add unit/component test conventions.
+- [x] Validate configuration and environment values at startup.
 
 ## M2 - Text MVP
 
 - [ ] Build a polished text chat interface.
 - [ ] Connect the chat endpoint to the selected text/Responses model.
 - [ ] Implement a server-side MCP gateway.
+- [ ] Enforce the MCP URL policy server-side, including DNS resolution to private/link-local addresses.
 - [ ] Support existing MCP server discovery and read-only tool discovery.
 - [ ] Add Home Assistant area/entity status views.
 - [ ] Show tool calls and redacted results.

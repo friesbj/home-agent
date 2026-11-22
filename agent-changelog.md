@@ -4,6 +4,23 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-22
 
+### 2026-11-22T15:09:17+01:00
+
+- **Added:** `.github/skills/commit-work/SKILL.md`
+- **Summary:** Added a repository skill describing how agents commit work as small, traceable, independently revertable commits.
+- **Changed:** `AGENTS.md`: referenced the new skill in the future agent instructions.
+- **No implementation:** Documentation/process-only change.
+
+### 2026-11-22T15:03:37+01:00
+
+- **Summary:** Implemented milestone M1 - Foundation.
+- **Removed:** `src/lib/server/auth.ts`, `src/lib/server/db/auth.schema.ts`, `src/routes/demo/**`, `src/demo.spec.ts`, `e2e/demo.test.ts`, the `auth:schema` script, and the `better-auth`/`@better-auth/cli` dependencies.
+- **Added:** `src/lib/config/{settings.ts,app-config.svelte.ts,mcp-url.ts,headers.ts}`, `src/lib/security/redact.ts`, `src/lib/server/{env-schema.ts,env.ts,rate-limit.ts,request-guard.ts}`.
+- **Added:** `src/lib/components/{SettingsForm.svelte,StorageNotice.svelte}`, `src/routes/onboarding/+page.svelte`, `src/routes/settings/+page.svelte`, `src/routes/+layout.ts`, `src/routes/+layout.server.ts`.
+- **Changed:** `src/hooks.server.ts` (env validation on init, request IDs, same-origin/body-size/rate-limit guards), `src/routes/api/chat/+server.ts` (validated body, browser/server key, model selection, timeout), `src/routes/+page.svelte` (Settings link, key header, model), `src/app.d.ts`, `src/lib/server/db/schema.ts`, `.env.example`, `README.md`.
+- **Tests:** unit tests for MCP URL policy, settings storage, redaction, env parsing, rate limiting, request guard; component tests for `SettingsForm`; e2e onboarding → settings → reset flow.
+- **Validation:** `npm run check` (0 errors), `vitest` server (34 passed) and client (4 passed), Playwright e2e (1 passed), ESLint clean.
+
 ### 2026-11-22T08:03:48+01:00
 
 - **Changed:** `AGENTS.md`
