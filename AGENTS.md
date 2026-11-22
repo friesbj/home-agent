@@ -43,6 +43,11 @@ This section is the implementation plan for future coding sessions.
 - Browser-stored secrets are not a security boundary. They may be read by browser JavaScript and anyone with control of the browser origin.
 - The public/internet-ready production phase should replace browser-only secret storage with an appropriate server-side secret flow before being treated as secure.
 - On first start, the user completes an onboarding form for the essential MCP and voice settings.
+- The private MVP is designed for one user and persists browser-side conversation/action history when enabled.
+- Mutating Home Assistant actions can require confirmation according to the user's onboarding/settings preference.
+- The default private-MVP preference is confirmation for every mutating action.
+- Home Assistant entity updates use WebSocket events.
+- The backend reasoning model and GPT-Live voice are selectable during onboarding.
 
 # Non-Negotiable Requirements
 
@@ -130,6 +135,8 @@ Use onboarding/browser configuration for:
 - MCP transport mode
 - allowed areas, domains, entities, and actions
 
+Use Home Assistant WebSocket events for live entity updates in the initial implementation.
+
 The initial browser-first prototype may store the MCP address and credentials in Browser Storage and send them only to the application's own server proxy. Before a generally available public release, replace browser-only credential storage with server-side provisioning.
 
 The initial allowlist should be conservative:
@@ -160,7 +167,7 @@ The initial form should collect:
 - optional preferred GPT-Live voice
 - optional preferred backend/reasoning model
 - optional preferred text model
-- optional confirmation preferences
+- confirmation preferences for mutating Home Assistant actions
 - optional favorite areas or entity domains
 
 ## Configuration handling
@@ -168,6 +175,12 @@ The initial form should collect:
 - Persist configuration in `localStorage`, `sessionStorage`, IndexedDB, or cookies as appropriate.
 - For the initial prototype, persist OpenAI API keys, Home Assistant tokens, and MCP credentials in Browser Storage when required by the SPA flow.
 - Use clear prefixes and versioned keys for stored configuration, for example `home-agent.settings.v1`.
+- Store confirmation policy as a named, versioned setting rather than mixing it with unrelated UI state.
+- Provide a dedicated Settings page or panel where all onboarding choices can be changed later.
+- Revalidate the MCP address and secret status after relevant Settings changes.
+- Disconnect or restart dependent chat/MCP/GPT-Live sessions when settings affecting connections or models change.
+- Provide reset-to-default and reset-all-data actions with explicit confirmation.
+- Clearly indicate whether a Settings change is applied immediately or requires a reconnect/restart.
 - Avoid cookies for raw credentials unless server-side delivery and cookie security settings are part of the implementation.
 - Add an explicit onboarding notice that Browser Storage secrets are readable by browser JavaScript and are not encrypted by the browser.
 - If MCP authentication requires a secret, the initial prototype may store it in Browser Storage and send it through the existing server integration, with the value kept out of UI labels and logs.
@@ -185,6 +198,19 @@ The initial form should collect:
 5. Select the voice, GPT-Live frontend model, backend reasoning model, and text fallback defaults.
 6. Open the smart-home assistant or dashboard.
 7. Never execute a mutating Home Assistant action during onboarding without explicit confirmation.
+
+# Mutating-Action Confirmation Settings
+
+Expose the confirmation policy in onboarding and Settings:
+
+- **Confirm every mutation:** read-only queries are unaffected; every state change or action requires confirmation.
+- **Confirm only high-risk mutations:** locks, alarms, garage doors, irrigation, presence-sensitive actions, and other explicitly classified domains require confirmation.
+- **Confirm by entity/domain:** allow the user to choose confirmation requirements per domain or entity category.
+- **No confirmation:** intended only for explicitly trusted/private deployments after a visible warning and should be disabled by default.
+
+The selected policy is a browser preference and must never weaken server-side allowlists or authorization checks. The server must always validate tool permissions, target entities, areas, action type, and the final confirmation decision.
+
+Changing the confirmation policy in Settings applies to future actions immediately. Existing pending confirmations must be cancelled or revalidated against the new policy.
 
 # Proposed Frontend
 
@@ -241,8 +267,10 @@ Before a mutating tool is called, the server should evaluate:
 Recommended confirmation categories:
 
 - **No confirmation:** read-only queries
-- **Optional/explicit confirmation:** lights, media, fan speeds, safe climate changes
-- **Required confirmation:** locks, alarms, garage doors, irrigation, presence-sensitive actions
+- **All mutations:** default private-MVP setting; includes lights, climate, fan/media state, scenes, scripts, locks, alarms, garage doors, irrigation, and presence-sensitive actions
+- **High-risk only:** locks, alarms, garage doors, irrigation, presence-sensitive actions, and explicitly configured sensitive domains
+- **Per-domain/per-entity:** user-selected confirmation policy
+- **Disabled:** explicit opt-out with visible warning and restricted/private deployment requirement
 - **Out of scope initially:** destructive automation changes or broad device enablement
 
 Tool calls must execute only after the server has approved the request. Client-only confirmation is not sufficient.
@@ -282,6 +310,9 @@ Browser-side persistence may include:
 - MCP bearer tokens or passwords
 - the MCP server address and transport settings
 - voice and model preferences
+- conversation metadata and timestamps
+- redacted tool summaries
+- optional transcript text
 
 For the initial prototype, document each stored secret and provide Settings actions to view status, replace, and delete stored credentials. Browser Storage is not a security boundary.
 
@@ -350,7 +381,7 @@ Before implementation:
 - Establish the browser-to-GPT-Live WebRTC connection.
 - Apply the onboarding-selected voice to `gpt-live-1.1`.
 - Configure a separate backend reasoning model for delegation.
-- Choose Responses delegation or client delegation for the first voice implementation.
+- Use Responses delegation for the first voice implementation.
 - Stream live transcripts, delegation lifecycle, and connection state.
 - Register approved MCP tools with the backend delegation configuration or client workflow.
 - Route delegated tool calls through the server-side MCP gateway.
@@ -402,14 +433,11 @@ The following decisions have been made:
 10. **Authentication scope:** The private testing MVP is unauthenticated; Better Auth is deferred until a generally available public release.
 11. **Initial Home Assistant domains:** lights, climate, scenes, scripts, and read-only states.
 12. **GPT-Live delegation:** Responses delegation is the first implementation choice.
-
-The following decisions still need to be made:
-
-1. Should every mutating action require confirmation, or only high-risk actions?
-2. Is persistent conversation and action history required?
-3. Is a single user sufficient initially, or should the app support household members and roles?
-4. Which backend/delegation model and GPT-Live voice should be the initial default?
-5. Should entity updates use Home Assistant WebSocket events or periodic REST polling first?
+13. **Mutating actions:** confirm-every-mutation is the default private-MVP preference; the confirmation policy is editable in onboarding and Settings.
+14. **History:** browser-side conversation/action history is persisted when enabled.
+15. **User model:** the private MVP supports one user.
+16. **Backend and voice defaults:** backend reasoning model and GPT-Live voice are selectable during onboarding.
+17. **Entity updates:** use Home Assistant WebSocket events.
 
 # Future Agent Instructions
 

@@ -2,6 +2,27 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-22
+
+### 2026-11-22T08:03:48+01:00
+
+- **Confirmation settings:** mutating-action confirmation is configurable in onboarding and a later Settings page.
+- **Default policy:** confirm every mutation is the default private-MVP preference.
+- **Policy options:** confirm every mutation, confirm high-risk mutations only, configure by domain/entity, or explicitly disable confirmation for a trusted private deployment.
+- **Server invariant:** changing a browser preference never disables server-side allowlists or authorization validation.
+- **Editability:** MCP address, credentials, voice/model, favorites, confirmation policy, and reset behavior must be editable after onboarding.
+
+### 2026-11-22T07:59:08+01:00
+
+- **M0 finalized:** planning and repository context decisions are complete.
+- **Confirmation policy:** every mutating Home Assistant action requires explicit confirmation in the private MVP.
+- **History:** browser-side conversation/action history is enabled for persistence.
+- **User model:** the private MVP supports one user.
+- **GPT-Live backend:** the backend reasoning model is onboarding-selectable.
+- **GPT-Live voice:** the voice is onboarding-selectable.
+- **Entity updates:** use Home Assistant WebSocket events.
+- **Next phase:** M1 Foundation can begin in a later implementation session.
+
 ## 2026-11-21
 
 ### 2026-11-21T23:08:33+01:00

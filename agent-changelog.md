@@ -2,6 +2,27 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-22
+
+### 2026-11-22T08:03:48+01:00
+
+- **Changed:** `AGENTS.md`
+- **Summary:** Made mutating-action confirmation configurable and added a later-editable Settings requirement.
+- **Details:** Added all/high-risk/domain/entity/no-confirmation policy choices, default behavior, server-side invariants, Settings revalidation, and reset behavior.
+- **Changed:** `Milestones.md`
+- **Summary:** Added a Settings implementation todo and recorded the configurable confirmation policy decision.
+- **No implementation:** Documentation-only planning update.
+
+### 2026-11-22T07:59:08+01:00
+
+- **Changed:** `AGENTS.md`
+- **Summary:** Finalized the remaining M0 product decisions.
+- **Details:** Added all-action confirmation, browser history, single-user scope, onboarding-selectable backend/voice, and Home Assistant WebSocket entity updates.
+- **Changed:** `Milestones.md`
+- **Summary:** Finalized and completed M0.
+- **Details:** M0 now has no remaining open todos. M1 remains ready for a future implementation session.
+- **No implementation:** Documentation-only milestone update.
+
 ## 2026-11-21
 
 ### 2026-11-21T23:08:33+01:00

@@ -40,6 +40,10 @@ On the first start, the application opens onboarding for:
 - Security and confirmation preferences
 - Favorite areas or entity domains
 
+All onboarding preferences can be changed later in Settings, including the MCP connection, credentials, voice/model, favorites, confirmation policy, and reset options.
+
+Mutating-action confirmation supports a default "confirm every mutation" policy plus high-risk-only, per-domain/per-entity, and explicit trusted-deployment opt-out modes.
+
 The private test MVP may store API and MCP credentials in Browser Storage. Browser Storage is not a secure production boundary: JavaScript and any attacker with control over the browser origin can read its values.
 
 The private MVP must not be operated as a broadly public service. Use VPN, password protection, or network restrictions. Mutating actions are confirmed and restricted to the allowed domains.

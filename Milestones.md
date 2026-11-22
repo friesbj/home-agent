@@ -23,13 +23,20 @@ This file tracks project milestones and agent-owned implementation todos.
 - [x] Choose Responses delegation for the first GPT-Live implementation.
 - [x] Choose lights, climate, scenes, scripts, and read-only states as the initial Home Assistant allowlist.
 - [x] Defer login authentication to the generally available public release.
-- [ ] Resolve remaining product decisions: confirmation scope, history, user/role model, backend/voice defaults, and entity updates.
+- [x] Define confirm-every-mutation as the default private-MVP confirmation policy.
+- [x] Make mutating-action confirmation policy configurable in onboarding and Settings.
+- [x] Persist browser-side conversation/action history when enabled.
+- [x] Limit the private MVP to one user.
+- [x] Make the backend reasoning model and GPT-Live voice onboarding-selectable.
+- [x] Use Home Assistant WebSocket events for live entity updates.
+- [x] Finalize M0 planning and repository context.
 
 ## M1 - Foundation
 
 - [ ] Repair or replace the placeholder Better Auth database schema if it remains in use.
 - [ ] Establish a browser-storage configuration module with versioned keys and redaction-safe helpers.
 - [ ] Implement onboarding for MCP address, transport, credentials, voice, and model preferences.
+- [ ] Implement the dedicated Settings flow for editing credentials, MCP address, voice/model, confirmation policy, favorites, and reset behavior.
 - [ ] Add MCP URL validation and an HTTPS/localhost development policy.
 - [ ] Replace the leaked/placeholder API-key setup with secure configuration review.
 - [ ] Protect public server routes and add authentication/session ownership.
