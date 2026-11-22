@@ -4,6 +4,20 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-22
 
+### 2026-11-22T15:50:03+01:00
+
+- **M2 implemented:** text chat with Home Assistant tools, MCP gateway, discovery, home overview, tool-call display, and server-enforced confirmations. Two follow-ups were added to M2: browser chat history and verification against a real Home Assistant instance.
+- **MCP server choice (user decision):** the official Home Assistant "Model Context Protocol" integration; client library `@ai-sdk/mcp` (2.0.x, matches `ai` 7 / `@ai-sdk/provider` 4).
+- **Tool allowlist:** `src/lib/home/ha-policy.ts` is shared with the UI. Matching uses the base name after the last `__` because HA may prefix tool names with the tool set (e.g. `homeassistant__GetLiveContext`). `HassTurnOn`/`HassTurnOff` require a `domain` argument in `light|climate|scene|script`; otherwise they are blocked. The admin "Call action" tool is blocked.
+- **Confirmation enforcement:** `streamText({ toolApproval, experimental_toolApprovalSecret })` in `src/lib/server/chat/chat-service.ts`. Blocked calls are auto-denied (`isAutomatic: true` chunks, no buttons), reads are `not-applicable`, mutations are `user-approval` or auto-`approved` according to the browser policy. Signed approvals reject forged, unsigned, and input-tampered replays (verified by mutation-testing the secret). Gateway `execute` re-checks the policy on every call.
+- **Client approval flow:** `Chat` uses `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses` and `addToolApprovalResponse`; the server passes `originalMessages` so continuations append to the same assistant message. The server-generated summary is in `part.approval.requestReason`.
+- **SSRF controls:** `src/lib/server/mcp/url-guard.ts` resolves DNS and rejects link-local/unspecified always and private/loopback unless allowed; `createPinnedFetch` only fetches the validated origin and forces `redirect: 'error'` (also covers SSE `endpoint` events). DNS rebinding between check and fetch is not prevented yet.
+- **Connections are per request:** the gateway connects for each chat/discover/state request and closes in `onEnd`/`onAbort`/`onError` or `finally`.
+- **Home overview:** parses the YAML-like `GetLiveContext` text (optionally wrapped in `{ success, result }` JSON) with a tolerant line parser; no YAML dependency.
+- **Testing:** `MockLanguageModelV4` from `ai/test` drives chat tests (V4 stream parts need `stream-start` and `finish` with `{ unified, raw }` finish reasons and nested usage). The fake MCP server (`src/lib/server/mcp/fake-ha-mcp-server.ts`) runs under Node 24 type stripping for Playwright, which now has two `webServer` entries and an explicit `baseURL`.
+- **Encoding pitfall:** Windows PowerShell 5.1 `Set-Content -Encoding utf8` writes a BOM; it had slipped into `README.md` and `.env.example` in M1. Use `[IO.File]::WriteAllText` with `UTF8Encoding($false)`.
+- **Dev server note:** the first `vite dev` run after dependency changes re-optimizes and reloads the page; automated browser scripts against dev may need a retry.
+
 ### 2026-11-22T15:09:17+01:00
 
 - **Commit workflow:** the user requires traceable, modular git history so recent changes can be reverted cleanly. `.github/skills/commit-work/SKILL.md` defines it: verified, self-contained Conventional Commits (tests with code, deps with lockfile, no mixed formatting), `Milestone:` trailer, Copilot co-author trailer, explicit path staging, no push/history rewrite without request.

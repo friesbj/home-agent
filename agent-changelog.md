@@ -4,6 +4,17 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-22
 
+### 2026-11-22T15:50:03+01:00
+
+- **Summary:** Implemented milestone M2 - Text MVP.
+- **Dependency:** added `@ai-sdk/mcp` 2.0.102 (dev dependency, matching the existing `ai` packages).
+- **Added (server):** `src/lib/server/mcp/{gateway.ts,url-guard.ts,live-context.ts,request.ts,fake-ha-mcp-server.ts}`, `src/lib/server/chat/{chat-service.ts,chat-test-helpers.ts}`, `src/lib/server/log.ts`; routes `src/routes/api/mcp/discover/+server.ts` and `src/routes/api/home/state/+server.ts`.
+- **Added (shared/UI):** `src/lib/home/{ha-policy.ts,types.ts,api.ts}`, `src/lib/components/{ChatPanel.svelte,ToolCallCard.svelte,HomeOverview.svelte}`.
+- **Changed:** `src/routes/api/chat/+server.ts` (MCP tools, Responses model, confirmation policy, signed approvals), `src/routes/+page.svelte` (chat + home layout), `SettingsForm.svelte` (Test connection), `src/lib/config/headers.ts` (`x-mcp-token`), `src/lib/server/env-schema.ts` (`MCP_ALLOW_MUTATIONS`, `MCP_TIMEOUT_MS`, `TOOL_APPROVAL_SECRET`), `playwright.config.ts` (fake MCP server, baseURL), `.env.example`, `README.md`, `AGENTS.md`.
+- **Fixed:** removed UTF-8 BOMs from `README.md` and `.env.example`.
+- **Tests:** policy, DNS/URL guard, pinned fetch, live-context parser, gateway (fake client), chat security (approval required, signed approval executes, denial, forged/unsigned/tampered approvals rejected, disallowed domain auto-denied, no-confirmation acknowledgement), chat + real MCP protocol integration, `ToolCallCard` component, e2e connection test + home overview.
+- **Validation:** `npm run check` 0 errors, ESLint clean, Vitest server + client 69 passed, Playwright 2 passed; UI checked via screenshots.
+
 ### 2026-11-22T15:09:17+01:00
 
 - **Added:** `.github/skills/commit-work/SKILL.md`

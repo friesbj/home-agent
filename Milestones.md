@@ -48,15 +48,17 @@ This file tracks project milestones and agent-owned implementation todos.
 
 ## M2 - Text MVP
 
-- [ ] Build a polished text chat interface.
-- [ ] Connect the chat endpoint to the selected text/Responses model.
-- [ ] Implement a server-side MCP gateway.
-- [ ] Enforce the MCP URL policy server-side, including DNS resolution to private/link-local addresses.
-- [ ] Support existing MCP server discovery and read-only tool discovery.
-- [ ] Add Home Assistant area/entity status views.
-- [ ] Show tool calls and redacted results.
-- [ ] Add basic mutating-action confirmation.
-- [ ] Add text chat integration and security tests.
+- [x] Build a polished text chat interface.
+- [x] Connect the chat endpoint to the selected text/Responses model.
+- [x] Implement a server-side MCP gateway.
+- [x] Enforce the MCP URL policy server-side, including DNS resolution to private/link-local addresses.
+- [x] Support existing MCP server discovery and read-only tool discovery.
+- [x] Add Home Assistant area/entity status views.
+- [x] Show tool calls and redacted results.
+- [x] Add basic mutating-action confirmation.
+- [x] Add text chat integration and security tests.
+- [ ] Persist browser-side chat history when history is enabled in Settings.
+- [ ] Verify the gateway against a real Home Assistant instance (tool names, prefixes, and GetLiveContext format).
 
 ## M3 - GPT-Live Full-Duplex MVP
 
