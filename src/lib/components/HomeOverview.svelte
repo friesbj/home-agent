@@ -87,7 +87,8 @@
 		<div class="rounded-lg border border-stone-200 bg-white">
 			<h3 class="border-b border-stone-200 px-3 py-2 font-medium text-stone-800">{area.name}</h3>
 			<ul class="divide-y divide-stone-100">
-				{#each area.entities as entity (`${entity.domain}:${entity.name}`)}
+				<!-- GetLiveContext has no entity IDs and names may repeat, so the position is part of the key. -->
+				{#each area.entities as entity, entityIndex (`${entityIndex}:${entity.domain}:${entity.name}`)}
 					<li class="flex items-center justify-between gap-2 px-3 py-2 text-sm">
 						<span>
 							<span class="text-stone-900">{entity.name}</span>
