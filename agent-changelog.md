@@ -4,6 +4,20 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-22
 
+### 2026-11-22T16:10:00+01:00
+
+- **Changed:** `src/lib/components/HomeOverview.svelte`: areas are collapsible `<details>` sections (favorite areas open by default), with device/active counts, "Expand all"/"Collapse all", and a sticky panel header.
+- **Changed:** `src/routes/+page.svelte`, `src/lib/components/ChatPanel.svelte`: on large screens the app fits the viewport (`lg:h-dvh`); the chat message list and the home panel scroll independently, keeping the chat input and Send button visible. Below `lg`, the chat has a fixed `75dvh` height and the page scrolls to the home panel.
+- **Changed:** `src/lib/server/mcp/live-context.ts`: natural sorting of areas and entities ("Room 2" before "Room 10").
+- **Tests:** HomeOverview component tests (default open state, expand/collapse all), natural-sort unit test, e2e layout test at 1280×720 with many areas; the fake MCP server now returns 42 entities in 12 areas.
+- **Validation:** `npm run check` 0 errors, ESLint clean, Vitest 72 passed, Playwright 3 passed; layout checked via screenshots.
+
+### 2026-11-22T16:05:00+01:00
+
+- **Fixed:** `src/lib/components/HomeOverview.svelte`: the "Your home" panel stayed empty with a real Home Assistant instance because entities with the same name and domain produced duplicate `{#each}` keys (`each_key_duplicate`), which aborted rendering. The key now includes the list position.
+- **Added:** `src/lib/components/HomeOverview.svelte.spec.ts` regression test with duplicate entity names.
+- **Validation:** component tests 7 passed, `npm run check` 0 errors, ESLint clean.
+
 ### 2026-11-22T15:50:03+01:00
 
 - **Summary:** Implemented milestone M2 - Text MVP.

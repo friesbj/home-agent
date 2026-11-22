@@ -4,6 +4,16 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-22
 
+### 2026-11-22T16:10:00+01:00
+
+- **Layout convention:** the dashboard (`/`) is viewport-bound on `lg+` screens: page container `lg:h-dvh` flex column, `main` grid with `lg:min-h-0 lg:flex-1`, and every scrolling child needs `min-h-0` plus its own `overflow-y-auto`. New panels must follow this so the chat input never scrolls out of view.
+- **Home overview UX:** areas are collapsed by default except favorite areas (from Settings); open state is kept per area name across refreshes via a function binding on `<details bind:open>`.
+
+### 2026-11-22T16:05:00+01:00
+
+- **GetLiveContext has no entity IDs:** real Home Assistant instances contain entities with identical names and domains. Never key `{#each}` blocks over entities by name/domain alone; Svelte throws `each_key_duplicate` and silently stops rendering the list.
+- **Home overview semantics:** the "Your home" panel is a read-only snapshot of exposed entities grouped by area, loaded on page load and via Refresh. It does not show chat actions and does not update automatically after a change; live updates arrive with the M4 WebSocket work.
+
 ### 2026-11-22T15:50:03+01:00
 
 - **M2 implemented:** text chat with Home Assistant tools, MCP gateway, discovery, home overview, tool-call display, and server-enforced confirmations. Two follow-ups were added to M2: browser chat history and verification against a real Home Assistant instance.
