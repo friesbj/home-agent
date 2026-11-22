@@ -445,7 +445,8 @@ For later implementation sessions:
 
 - Read this file before making code changes.
 - Read `agent-knowledge.md`, `Milestones.md`, and recent `agent-changelog.md` entries before planning or implementation.
-- Use the repository skills under `.github/skills/agent-knowledge`, `.github/skills/agent-changelog`, and `.github/skills/milestones`.
+- Use the repository skills under `.github/skills/agent-knowledge`, `.github/skills/agent-changelog`, `.github/skills/milestones`, and `.github/skills/commit-work`.
+- Commit verified work with the `commit-work` skill: small, self-contained, conventional commits linked to milestones so each can be reverted independently.
 - Maintain `agent-knowledge.md` with timestamped durable discoveries and decisions.
 - Maintain `agent-changelog.md` after relevant implementation or documentation changes.
 - Maintain `Milestones.md` by selecting, starting, completing, or blocking concrete todos.
