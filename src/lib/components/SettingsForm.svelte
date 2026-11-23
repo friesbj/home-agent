@@ -508,15 +508,19 @@
 		</div>
 		<label class="flex items-center gap-2 text-sm">
 			<input type="checkbox" bind:checked={draft.history.enabled} />
-			Keep conversation and action history in this browser
+			Keep text chat history in this browser
 		</label>
+		<p class="text-sm text-stone-600">
+			Text messages are stored unencrypted. Turning history off keeps existing messages until you
+			delete them in Settings. Tool activity is not restored.
+		</p>
 		<label class="flex items-center gap-2 text-sm">
 			<input
 				type="checkbox"
 				bind:checked={draft.history.retainTranscripts}
 				disabled={!draft.history.enabled}
 			/>
-			Also keep full transcripts
+			Also keep full voice transcripts (planned)
 		</label>
 	</fieldset>
 

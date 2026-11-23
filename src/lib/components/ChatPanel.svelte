@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Chat } from '@ai-sdk/svelte';
 	import {
 		DefaultChatTransport,
@@ -7,7 +8,9 @@
 		lastAssistantMessageIsCompleteWithApprovalResponses
 	} from 'ai';
 	import { appConfig } from '$lib/config/app-config.svelte';
+	import { loadSettings, STORAGE_KEYS } from '$lib/config/settings';
 	import { credentialHeaders, savedMcpTarget } from '$lib/home/api';
+	import { CHAT_HISTORY_KEY, loadChatHistory, saveChatHistory } from '$lib/home/chat-history';
 	import ToolCallCard from './ToolCallCard.svelte';
 
 	const suggestions = [
@@ -17,8 +20,24 @@
 	];
 
 	let input = $state('');
+	let historyError = $state('');
+	let interruptedTools = $state(false);
+	let historyAvailable = $state(true);
+	let initialMessages;
+	if (appConfig.settings.history.enabled) {
+		try {
+			const history = loadChatHistory(localStorage);
+			initialMessages = history?.messages;
+			interruptedTools = history?.interruptedTools ?? false;
+		} catch {
+			historyAvailable = false;
+			historyError =
+				'Chat history could not be loaded. It will not be overwritten. Check browser storage or clear chat history in Settings.';
+		}
+	}
 
 	const chat = new Chat({
+		messages: initialMessages,
 		transport: new DefaultChatTransport({
 			api: '/api/chat',
 			headers: () => credentialHeaders(savedMcpTarget()),
@@ -36,9 +55,39 @@
 
 	const busy = $derived(chat.status === 'submitted' || chat.status === 'streaming');
 
+	onMount(() => {
+		function handleStorage(event: StorageEvent) {
+			if (
+				event.storageArea === localStorage &&
+				(event.key === STORAGE_KEYS.settings ||
+					event.key === CHAT_HISTORY_KEY ||
+					event.key === null)
+			) {
+				historyAvailable = false;
+				historyError =
+					'History or settings changed in another tab. Reload before saving chat history.';
+			}
+		}
+		window.addEventListener('storage', handleStorage);
+		return () => window.removeEventListener('storage', handleStorage);
+	});
+
+	$effect(() => {
+		if (!appConfig.settings.history.enabled || !historyAvailable) return;
+		const messages = $state.snapshot(chat.messages);
+		try {
+			if (!loadSettings(localStorage).history.enabled) return;
+			saveChatHistory(localStorage, messages, interruptedTools);
+			historyError = '';
+		} catch {
+			historyError = 'Chat history could not be saved. Check browser storage or available space.';
+		}
+	});
+
 	function send(text: string) {
 		const value = text.trim();
 		if (!value || busy) return;
+		interruptedTools = false;
 		chat.sendMessage({ text: value });
 		input = '';
 	}
@@ -76,6 +125,17 @@
 	aria-label="Chat"
 >
 	<div {@attach autoscroll} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+		{#if historyError}
+			<p class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
+				{historyError}
+			</p>
+		{/if}
+		{#if interruptedTools}
+			<p class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+				A previous tool action was interrupted or awaiting confirmation. Its outcome is unknown;
+				check Home Assistant before trying again.
+			</p>
+		{/if}
 		{#if chat.messages.length === 0}
 			<div class="space-y-3 text-stone-600">
 				<p>Ask about your home or tell me what to change.</p>

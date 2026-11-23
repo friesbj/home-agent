@@ -4,6 +4,12 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T15:42:40+01:00
+
+- **M2:** Added versioned browser-side text chat history in `src/lib/home/chat-history.ts`, integrated it into `ChatPanel.svelte`, and added explicit deletion in Settings. Tool data and approvals are not restored; interrupted actions are flagged. Disabling history preserves but does not load or update saved data.
+- **Changed:** `SettingsForm.svelte`, `README.md`, and `AGENTS.md` clarify text versus future voice transcript retention; `Milestones.md` records completion and the real-instance verification blocker.
+- **Validation:** `npm run check`, targeted ESLint and Prettier, 2 history unit tests, 4 history Playwright tests, and the onboarding Playwright test passed. The Playwright production build reported only existing Zod/Rollup annotation warnings.
+
 ### 2026-11-23T15:28:08+01:00
 
 - **Changed:** `.github/skills/git-branching/SKILL.md`: creating or switching a branch now always requires the user's confirmation via `ask_user` (recommended option as default, alternatives, handling of uncommitted changes). Staying on the current branch for the same topic needs no question. Reusing a merged branch is allowed when the user chooses it (fast-forward it to `main` first).

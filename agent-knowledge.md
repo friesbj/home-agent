@@ -4,6 +4,12 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T15:42:40+01:00
+
+- **M2 text history (user decision):** the history setting permits unencrypted browser storage of text chat messages; the separate transcript setting applies to future voice transcripts. Disabling history neither loads nor updates the previously saved chat, which can be explicitly deleted in Settings.
+- **History safety:** only user/assistant text is restored as model context. Tool inputs, outputs, and approvals are not persisted; unfinished actions are flagged as having an unknown outcome rather than resumed. If another tab changes history or settings, the chat stops saving and asks for a reload.
+- **Real Home Assistant verification:** still blocked on user assistance. The fake MCP tests do not establish the real integration's tool names, prefixes, or `GetLiveContext` format.
+
 ### 2026-11-23T15:28:08+01:00
 
 - **Branch confirmation (user requirement):** agents must ask the user (via `ask_user`) before every branch creation or switch, proposing a recommended branch as default. Only staying on the current branch for a continuing topic proceeds without asking.
