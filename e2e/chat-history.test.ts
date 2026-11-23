@@ -288,6 +288,12 @@ test('keeps new tabs independent and stops stale writes to a shared session', as
 	await send(other, 'Second tab change');
 	await expect(page.getByRole('alert').filter({ hasText: 'changed in another tab' })).toBeVisible();
 	const sessionId = await other.getByLabel('Conversation').inputValue();
+	// The stale-tab alert can appear before the other tab has persisted its message.
+	await expect
+		.poll(() =>
+			page.evaluate((id) => localStorage.getItem(`home-agent.chat-session.v1.${id}`), sessionId)
+		)
+		.toContain('Second tab change');
 	const saved = await page.evaluate(
 		(id) => localStorage.getItem(`home-agent.chat-session.v1.${id}`),
 		sessionId
