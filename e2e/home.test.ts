@@ -49,3 +49,30 @@ test('keeps the chat input visible with many areas on a laptop-sized screen', as
 	const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
 	expect(pageHeight).toBeLessThanOrEqual(720);
 });
+
+test('opens the assistant from a scrolled home view on a small screen', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 640 });
+	await page.goto('/onboarding');
+	await page.getByLabel(/Server address/).fill(MCP_URL);
+	await page.getByLabel('Authentication').selectOption('bearer');
+	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
+	await page.getByRole('button', { name: 'Finish setup' }).click();
+	const navigation = page.getByRole('navigation', { name: 'Main navigation' });
+	const orb = await navigation.locator('.assistant-orb').boundingBox();
+	const home = await navigation.getByRole('button', { name: 'Home', exact: true }).boundingBox();
+	const settings = await navigation.getByRole('link', { name: 'Settings' }).boundingBox();
+	const bar = await navigation.boundingBox();
+	expect(orb && home && settings && bar).toBeTruthy();
+	if (!orb || !home || !settings || !bar) throw new Error('Navigation is not visible');
+	expect(orb.x).toBeGreaterThanOrEqual(home.x + home.width);
+	expect(orb.x + orb.width).toBeLessThanOrEqual(settings.x);
+	expect(orb.y).toBeLessThan(bar.y);
+	await page.getByRole('heading', { name: 'Room 10' }).scrollIntoViewIfNeeded();
+	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	await expect(page.getByLabel('Message')).toBeInViewport();
+	await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport();
+	const send = await page.getByRole('button', { name: 'Send' }).boundingBox();
+	expect(send && send.y + send.height <= bar.y).toBe(true);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});

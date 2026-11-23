@@ -204,7 +204,7 @@
 		<textarea
 			id="chat-input"
 			rows="2"
-			class="flex-1 resize-none rounded-md border-stone-300"
+			class="min-w-0 flex-1 resize-none rounded-md border-stone-300"
 			placeholder="Message Home Agent…"
 			bind:value={input}
 			onkeydown={handleKeydown}

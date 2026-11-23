@@ -6,6 +6,8 @@ This document is the evolving, project-wide foundation for Home Agent's design. 
 
 New features should fit this shared product language. As requirements or insights change, evolve the concept deliberately rather than creating different visual styles for individual pages. Specific values are starting points to be verified during implementation against contrast, devices, and actual behavior.
 
+The first M2a slice implements the ambient shell and mobile navigation, a static original network orb, self-hosted Plus Jakarta Sans, and Lucide icons. Home and Assistant remain mounted while switching mobile views; Settings still uses its existing route. The existing light Home and chat panels are temporary, readable surfaces until their dedicated redesigns. Contrast, accessibility, and visual approval for the complete design remain outstanding.
+
 The working application is the foundation, not a throwaway prototype. Preserve its architecture, data flows, security, and core functionality. This document does not authorize implementation: the immersive voice screen is a concept here; actual voice functionality belongs to M3.
 
 ## Visual Reference

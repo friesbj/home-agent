@@ -21,6 +21,54 @@ async function send(page: Page, text: string) {
 	await page.getByRole('button', { name: 'Send' }).click();
 }
 
+test('mobile navigation preserves a running response and its pending approval', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	let completeResponse: (() => void) | undefined;
+	await page.route('**/api/chat', async (route) => {
+		await new Promise<void>((resolve) => {
+			completeResponse = resolve;
+		});
+		await route.fulfill({
+			headers: { 'content-type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+			body: stream([
+				{ type: 'start', messageId: 'mobile-approval' },
+				{
+					type: 'tool-input-available',
+					toolCallId: 'call',
+					toolName: 'HassTurnOn',
+					input: { domain: ['light'] },
+					dynamic: true
+				},
+				{
+					type: 'tool-approval-request',
+					toolCallId: 'call',
+					approvalId: 'approval',
+					reason: 'Turn on light'
+				},
+				{ type: 'finish' }
+			])
+		});
+	});
+	await setup(page);
+	await expect(page.getByRole('region', { name: 'Home', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Ask your home' }).click();
+	await expect(page.getByLabel('Message')).toBeInViewport();
+	await send(page, 'Turn on the light');
+	await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+	await page.getByRole('button', { name: 'Home', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Assistant', exact: true })).toBeHidden();
+	await expect.poll(() => Boolean(completeResponse)).toBe(true);
+	completeResponse?.();
+	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+	await page.getByRole('button', { name: 'Home', exact: true }).click();
+	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+	await expect(page.getByText('Turn on the light', { exact: true })).toBeVisible();
+});
+
 test('renders assistant Markdown and restored history without formatting user messages', async ({
 	page
 }) => {
