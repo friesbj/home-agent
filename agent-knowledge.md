@@ -2,7 +2,22 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-24
+
+### 2026-11-24T00:05:57+01:00
+
+- **Minimal settings (user requirement):** onboarding and Settings show only what every user needs to start: server address, access token, and OpenAI API key, plus the active confirmation rule. Add new options under "Advanced settings" unless all users need them to start. Hidden-field errors must open the disclosure and focus the field (`ESSENTIAL_FIELDS` in `SettingsForm.svelte`).
+- **Auth default:** `mcp.authType` defaults to `bearer`, because the Home Assistant MCP integration requires a long-lived access token. Tests no longer select it.
+- **Test selectors:** use `{ exact: true }` for "Access token" (also matches "Home Assistant access token"), "Voice" (also matches the transcript checkbox), and "Advanced settings" (also appears in the safety summary).
+
 ## 2026-11-23
+
+### 2026-11-23T23:46:41+01:00
+
+- **Design system usage:** build UI from the tokens and utilities in `src/routes/layout.css` (`surface-*`, `btn btn-*`, `field`, `notice notice-*`, `icon-well`, `form-section`) instead of one-off colors. `field` sets only `background-color`, because the `background` shorthand removes the forms plugin's select arrow.
+- **Shortcut path:** Home shortcuts call `getChatSessionManager().submitShortcut()`, which reuses the normal chat request and server-side approval and refuses while a switch, response, or pending approval is in progress. Use this path, not a new endpoint, for later assistant shortcuts.
+- **Home data:** `src/lib/home/summary.ts` derives the status sentence and summaries from one fetch. Scenes and scripts report "unknown" when not yet triggered; treat that as idle, not unavailable.
+- **E2E port conflict:** Playwright starts its own fake MCP server on port 4180. Stop any manually started fake server first, or the suite aborts without test output.
 
 ### 2026-11-23T23:18:37+01:00
 

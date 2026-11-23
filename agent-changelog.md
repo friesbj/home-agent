@@ -2,7 +2,36 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-24
+
+### 2026-11-24T00:15:00+01:00
+
+- **M2a composer (user request):** Send and Stop in `ChatPanel.svelte` are now round, icon-only 44 px buttons with `aria-label` and `title` set to "Send" and "Stop"; Stop uses a filled square. `Design.md` documents the pattern.
+- **Validation:** `npm run check`, ESLint on the component, and the chat-history and home E2E suites (14/14). Inspected the composer at 390 px and 1280×720.
+
+### 2026-11-24T00:05:57+01:00
+
+- **M2a minimal settings (user request):** `SettingsForm.svelte` now shows only "Connect your home": server address, access token, OpenAI API key, "Test connection", and a summary of the active confirmation rule, with a warning icon when confirmations are off. All other options moved unchanged into a collapsed "Advanced settings" disclosure, which opens and focuses the field when it contains a validation error. The access-token field has the visible label "Access token", empty secret fields no longer show "Not stored.", and the address hint is shorter.
+- **Defaults:** `settings.ts` defaults `mcp.authType` to `bearer` for new setups; existing stored settings keep their value.
+- **Pages:** onboarding has a shorter intro, `StorageNotice` is condensed but keeps every required statement, and Settings groups stored credentials, history deletion, and reset in a collapsed "Data and privacy" disclosure. Added the `form-group` utility in `layout.css`.
+- **Tests:** E2E tests and component specs use the new labels and open the disclosures where needed. Onboarding asserts three visible inputs and the required token. A new component test checks that hidden errors open Advanced settings.
+- **Validation:** `npm run check` (0 errors), `npx eslint .`, `npx vitest run` (90/90), the full `npx playwright test` (15/15), and a targeted E2E rerun after the last text change (4/4). Onboarding inspected at 390 px.
+
 ## 2026-11-23
+
+### 2026-11-23T23:46:41+01:00
+
+- **M2a implementation:** Completed the design foundation, Home dashboard, scene shortcuts, Assistant redesign with the desktop orb, and the onboarding and Settings restyle.
+  - `layout.css`: semantic color, radius, and easing tokens plus `surface-glass`, `surface-selected`, `surface-solid`, `surface-bar`, `icon-well`, `btn` variants, `field`, `notice` variants, and `form-section`; dark checkbox and radio styles; a reduced-motion override. The ambient shell moved to `+layout.svelte`, so every route shares it.
+  - `AssistantOrb.svelte`: `header`, `nav`, `card`, and `hero` sizes and an optional slow rotation and breathing animation, static under reduced motion.
+  - New `HomeView.svelte` (greeting, status, refresh, entry card, summaries, scenes, rooms), `DomainIcon.svelte`, and `src/lib/home/summary.ts` with unit tests; `HomeOverview.svelte` became the presentational `RoomList.svelte` with a domain filter. Scenes and scripts no longer show "unknown" as unavailable.
+  - `chat-session.svelte.ts`: `switching`, `busy`, `awaitingApproval`, `shortcutBlockedReason`, and `submitShortcut()`; `ChatPanel` uses the shared `switching` state. Typed messages behave as before.
+  - `ChatPanel`, `MarkdownMessage`, and `ToolCallCard` restyled; visible texts and accessible names are unchanged.
+  - `settings.ts`: optional `profile.displayName` (max. 40), editable in a new Profile section of `SettingsForm`; older stored settings still load.
+  - Onboarding, Settings, and `StorageNotice` restyled; Settings has a separate "Delete and reset" section.
+  - The fake MCP server exposes a climate reading and a "Movie Night" scene for tests.
+- **Tests:** added `summary.spec.ts`, a profile compatibility test in `settings.spec.ts`, HomeView component tests (greeting, filter, scene shortcut and disabled state), and an E2E test that a scene shortcut sends a visible request through the confirmation flow and blocks further shortcuts while pending.
+- **Validation:** `npm run check` (0 errors), `npx eslint .` (clean), Prettier on all changed code files, `npx vitest run` (89/89), and two full `npx playwright test` runs (15/15 each). Inspected Home, Assistant with a pending confirmation, onboarding, and Settings at 390 px and 1280×720 with mocked services. The voice screen specification and the cross-device validation todo remain open.
 
 ### 2026-11-23T23:18:37+01:00
 

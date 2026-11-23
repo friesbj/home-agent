@@ -6,7 +6,7 @@ This document is the evolving, project-wide foundation for Home Agent's design. 
 
 New features should fit this shared product language. As requirements or insights change, evolve the concept deliberately rather than creating different visual styles for individual pages. Specific values are starting points to be verified during implementation against contrast, devices, and actual behavior.
 
-The first M2a slice implements the ambient shell and mobile navigation, a static original network orb, self-hosted Plus Jakarta Sans, and Lucide icons. Home and Assistant remain mounted while switching mobile views; Settings still uses its existing route. The existing light Home and chat panels are temporary, readable surfaces until their dedicated redesigns. Contrast, accessibility, and visual approval for the complete design remain outstanding.
+M2a implementation status: the foundation, shell, Home dashboard, scene shortcuts, Assistant, onboarding, and Settings use this design system; no primary view keeps the earlier light style. The voice screen specification and the final cross-device validation are still open; see [Milestones.md](./Milestones.md#m2a---mobile-first-product-design). Decisions taken during implementation are recorded under [Resolved Design Decisions](#resolved-design-decisions).
 
 The working application is the foundation, not a throwaway prototype. Preserve its architecture, data flows, security, and core functionality. This document does not authorize implementation: the immersive voice screen is a concept here; actual voice functionality belongs to M3.
 
@@ -43,13 +43,15 @@ Home Agent should feel like a calm, intelligent center for the home: modern, ele
 6. **Trust through clarity:** Read-only information and changes are explicitly distinguishable. Progress, errors, and unknown outcomes are not presented as success. The interface never shows a control, state, or claim the product cannot back up.
 7. **Accessibility is part of the aesthetic:** Visible focus states, contrast, readable type, adequate touch targets, and reduced motion are essential properties.
 
-## Current State
+## Starting Point Before M2a
+
+This section records the state M2a started from; it no longer describes the current interface.
 
 This assessment is based on code analysis, not a new visual inspection on real devices:
 
 - The [home page](./src/routes/+page.svelte) shows chat and the home overview side by side on large screens; on mobile they are stacked, and chat receives `75dvh`. Many rooms create a long page flow. There is no navigation bar; Settings is a text link.
 - [ChatPanel](./src/lib/components/ChatPanel.svelte) provides sessions, input, streaming, tool calls, and confirmations. It cancels in-progress work when it is unmounted. [MarkdownMessage](./src/lib/components/MarkdownMessage.svelte) renders Markdown safely; user messages remain plain text.
-- [HomeOverview](./src/lib/components/HomeOverview.svelte) lists rooms and entities from one fetch, with manual refresh, collapsible rooms, favorite prioritization, and a timestamp. Entities carry a name, domain, state, areas, and attributes such as `current_temperature`; there are no entity IDs.
+- `HomeOverview` (now [RoomList](./src/lib/components/RoomList.svelte), with fetching moved to [HomeView](./src/lib/components/HomeView.svelte)) lists rooms and entities from one fetch, with manual refresh, collapsible rooms, favorite prioritization, and a timestamp. Entities carry a name, domain, state, areas, and attributes such as `current_temperature`; there are no entity IDs.
 - All device changes run through the chat endpoint with server-side policy and approval. There is no endpoint for direct device actions outside the conversation.
 - Onboarding and Settings share [SettingsForm](./src/lib/components/SettingsForm.svelte). The many technical fields are presented in sequence with largely equal emphasis. There is no setting for the user's name.
 - [ToolCallCard](./src/lib/components/ToolCallCard.svelte) already distinguishes read and change calls and their execution states.
@@ -193,7 +195,7 @@ Direct switches and one-tap actions outside the conversation, including the Ligh
 
 ### Assistant
 
-The conversation is the visual priority: glass message surfaces for the assistant, accent-tinted bubbles for the user, and a composer docked above the keyboard and the bottom safe area. The header shows a small orb, the conversation selector, and "New chat". Empty, waiting, streaming, interrupted, and error states have clear labels.
+The conversation is the visual priority: glass message surfaces for the assistant, accent-tinted bubbles for the user, and a composer docked above the keyboard and the bottom safe area. Send and Stop are round, icon-only 44 px buttons with the accessible names "Send" and "Stop", so the composer keeps its width on small screens. The header shows a small orb, the conversation selector, and "New chat". Empty, waiting, streaming, interrupted, and error states have clear labels.
 
 On desktop, the empty conversation gives the orb a prominent central position in the Assistant panel, alongside the existing suggestions. Once a conversation contains messages, the orb remains visible in a compact header so that messages, tool activity, confirmations, and the composer have priority. Switching between these presentations must not create a new chat or interrupt the current one. The orb must not imply voice, listening, or activity that is not actually available.
 
@@ -212,6 +214,8 @@ The header button on Home is the place for things that need attention. In M2a it
 ### Onboarding and Settings
 
 Both share form language and behavior. Sections are glass cards; inputs use the solid surface. Onboarding leads with connection and safety, followed by preferences; technical details remain accessible without giving all information equal emphasis. A step-by-step presentation is appropriate only if all existing options, validations, and a clear way back are preserved.
+
+**Minimal by default (user requirement):** getting started must feel effortless. The form shows one "Connect your home" section with only three fields, the server address, the access token, and the OpenAI API key, plus "Test connection" and a one-line summary of the active confirmation rule, so safety stays visible. Everything else sits in a collapsed "Advanced settings" disclosure in this order: Profile, confirmations, voice and models, favorites and history, connection details (transport, display name, authentication), and the optional Home Assistant WebSocket settings. A validation error inside the collapsed section opens it and focuses the field. New setups default to bearer authentication, because the Home Assistant MCP integration requires a long-lived access token. On the Settings page, stored credentials, history deletion, and reset sit in a collapsed "Data and privacy" disclosure. The Browser Storage notice stays visible, in short form. New options go into Advanced settings unless every user needs them to start.
 
 Settings groups connection, models and voice, confirmations, favorites, history, and a profile section with the optional display name. The name is stored with the browser settings and used only for the greeting. Browser Storage and credential notices, connection testing, field errors, and storage status remain visible. Delete and reset actions are spatially and verbally distinct from ordinary settings and keep their explicit confirmation.
 
@@ -309,16 +313,20 @@ Later milestones add capabilities to the views that M2a designs. They extend the
 - When secrets move to the server, credential fields and the Browser Storage notices in onboarding and Settings change accordingly.
 - The application loads its font and icons from its own origin, so a strict Content Security Policy remains possible.
 
-## Open Design Questions
+## Resolved Design Decisions
 
-Resolve these during implementation and record the outcome here:
+These questions were open in the plan and were decided during M2a implementation:
 
-- which of the candidate fonts is used;
-- whether Lucide covers all required icons;
-- how scene tiles get an icon, since fetched scenes carry only a name;
-- which climate device the summary shows when several exist;
-- whether the activity indicator ships in M2a;
-- whether Assistant is a route or an in-page view.
+- **Font:** Plus Jakarta Sans, self-hosted through `@fontsource-variable/plus-jakarta-sans` with a system sans-serif fallback.
+- **Icons:** Lucide (`@lucide/svelte`) covers every icon so far, imported individually. `DomainIcon` maps domains to an icon and accent color; unknown domains use a neutral power icon.
+- **Scene icons:** fetched scenes carry only a name, so every scene tile uses the same scene icon. Per-scene icons would need data the product does not have.
+- **Climate summary:** one reading shows its value and area; several readings show the range and the number of devices. Climate devices without `current_temperature` are counted but never shown as a value.
+- **Activity indicator:** not shipped in M2a. The header has no activity button rather than a decorative one; Home's scene hint and the disabled tiles already say when a confirmation is pending. The Activity view arrives with M4.
+- **Assistant placement:** an in-page view on `/`, not a route. Home and Assistant both stay mounted and the inactive one is hidden on mobile, because unmounting `ChatPanel` cancels running work.
+- **Hint line and "See all":** the label "Assistant" under the navigation orb replaces the reference's separate hint line, and the scene row scrolls horizontally on mobile and wraps on desktop instead of linking to a "See all" page.
+- **Summary cards:** the chevron on Lights and Climate filters Rooms to that domain, with a visible "Showing … only" status and a "Show all devices" control.
+- **Shortcut gating:** shortcuts are disabled while a session switch, a response, or a pending confirmation is in progress, and the reason is shown under the Scenes heading. Typed messages keep their previous behavior.
+- **Danger zone:** delete and reset actions sit in a separate "Delete and reset" section, outlined in the danger color at rest; only the explicit confirmation step uses a filled destructive button.
 
 ## Quality and Acceptance Criteria
 
