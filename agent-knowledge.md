@@ -4,6 +4,20 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T17:19:22+01:00
+
+- **M2 session history implemented:** each saved chat has its own versioned localStorage key; a document-scoped manager preserves the active chat across client-side navigation but starts a fresh chat after reload or in a new tab. Legacy v1 single-chat history is deleted, not migrated.
+- **Concurrency and safety:** Web Locks and expected-value checks prevent stale same-session writes; separate sessions are stored independently. When Web Locks are unavailable, history saving is disabled with an explicit error while chat and data deletion remain usable. Switching sessions discards pending approvals and warns that interrupted actions may have an unknown outcome.
+
+### 2026-11-23T17:05:49+01:00
+
+- **M2 session history correction (user decision, planned):** delete the existing v1 chat history when introducing session-based history; do not migrate it. This supersedes the earlier migration decision. Preserve settings and credentials.
+
+### 2026-11-23T17:03:45+01:00
+
+- **M2 session history (user decision, planned):** start a new text-chat session on a new tab, browser restart, or page reload; returning from Settings preserves the active session. Previous sessions remain selectable and continuable when history is enabled.
+- **Migration and switching (user decision, planned):** migrate the existing v1 text history into a selectable session. Switching sessions cancels an ongoing response and pending confirmations; cancellation does not guarantee that an already-started device action was undone.
+
 ### 2026-11-23T16:09:21+01:00
 
 - **M2 real Home Assistant comparison:** the user supplied anonymized discovery and `GetLiveContext` output from a real instance. Observed names include `homeassistant__GetLiveContext`, `llm__GetDateTime`, `intent__HassTurnOn`/`HassTurnOff`, `light__HassLightSet`, and `climate__HassClimateSetTemperature`; the existing prefix matching and policy classify them as intended.

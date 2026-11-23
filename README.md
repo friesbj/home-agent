@@ -46,7 +46,7 @@ Mutating-action confirmation supports a default "confirm every mutation" policy 
 
 The private test MVP may store API and MCP credentials in Browser Storage. Browser Storage is not a secure production boundary: JavaScript and any attacker with control over the browser origin can read its values.
 
-When text chat history is enabled (the default), text messages are stored unencrypted in this browser and restored as conversation context after a reload. Do not enter credentials in chat. Tool inputs, outputs, and approvals are not stored or restored; interrupted actions may have an unknown outcome and should be checked in Home Assistant. Disabling history stops loading and saving it but keeps existing history until it is explicitly cleared in Settings or all data is reset. Voice transcript retention is a separate, future feature.
+When text chat history is enabled (the default), text messages are stored unencrypted in this browser as separate conversations. A new tab, browser restart, or reload starts a new conversation; use the Conversation selector to continue an earlier one. Returning from Settings keeps the current conversation. The old single-conversation history is deleted on transition; settings and credentials are unaffected. Do not enter credentials in chat. Switching conversations cancels the response and pending approvals, but an action already started may have an unknown outcome: check Home Assistant before retrying. Tool inputs, outputs, and approvals are not stored or restored. Disabling history stops loading and saving it but keeps existing history until it is explicitly cleared in Settings or all data is reset. Voice transcript retention is a separate, future feature.
 
 The private MVP must not be operated as a broadly public service. Use VPN, password protection, or network restrictions. Mutating actions are confirmed and restricted to the allowed domains.
 
@@ -135,7 +135,7 @@ Copy `.env.example` to `.env`. All variables are optional and validated at serve
 | `REQUEST_TIMEOUT_MS` | `60000` | Maximum model request duration |
 | `MAX_REQUEST_BODY_BYTES` | `1000000` | Maximum API request body |
 
-Browser Storage keys are versioned under the `home-agent.` prefix: `home-agent.settings.v1`, `home-agent.confirmation-policy.v1`, `home-agent.secrets.v1`, and `home-agent.chat-history.v1`.
+Browser Storage keys are versioned under the `home-agent.` prefix: `home-agent.settings.v1`, `home-agent.confirmation-policy.v1`, `home-agent.secrets.v1`, and one `home-agent.chat-session.v1.<id>` key per saved conversation. Session history requires the browser Web Locks API (normally available on HTTPS or localhost) to avoid conflicting writes; chat remains usable without history when it is unavailable.
 
 ## Testing Conventions
 

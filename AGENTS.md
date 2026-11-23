@@ -44,6 +44,8 @@ This section is the implementation plan for future coding sessions.
 - The public/internet-ready production phase should replace browser-only secret storage with an appropriate server-side secret flow before being treated as secure.
 - On first start, the user completes an onboarding form for the essential MCP and voice settings.
 - The private MVP is designed for one user and persists browser-side conversation/action history when enabled.
+- M2 follow-up: text history is organized into selectable chat sessions. A new tab, browser restart, or page reload starts a new session; returning from Settings keeps the active session. Delete the legacy v1 chat history during the transition instead of migrating it; retain settings and credentials.
+- Switching chat sessions cancels in-progress responses and pending confirmations; already-started device actions may have an unknown outcome and must not be assumed undone.
 - Mutating Home Assistant actions can require confirmation according to the user's onboarding/settings preference.
 - The default private-MVP preference is confirmation for every mutating action.
 - Home Assistant entity updates use WebSocket events.

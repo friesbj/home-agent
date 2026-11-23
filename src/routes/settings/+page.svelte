@@ -5,7 +5,7 @@
 	import StorageNotice from '$lib/components/StorageNotice.svelte';
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { SECRET_LABELS, type SecretName } from '$lib/config/settings';
-	import { clearChatHistory } from '$lib/home/chat-history';
+	import { clearStoredChatHistory, resetApplicationData } from '$lib/home/chat-session.svelte';
 
 	let { data } = $props();
 
@@ -51,9 +51,9 @@
 		formRevision++;
 	}
 
-	function deleteHistory() {
+	async function deleteHistory() {
 		try {
-			clearChatHistory(localStorage);
+			await clearStoredChatHistory();
 			pendingHistoryDeletion = false;
 			historyError = '';
 			statusMessages = ['Chat history deleted from this browser.'];
@@ -64,9 +64,13 @@
 
 	async function confirmReset() {
 		if (pendingReset === 'all') {
-			appConfig.resetAll();
-			pendingReset = null;
-			await goto(resolve('/onboarding'));
+			try {
+				await resetApplicationData();
+				pendingReset = null;
+				await goto(resolve('/onboarding'));
+			} catch {
+				historyError = 'Data could not be deleted. Check browser storage and try again.';
+			}
 			return;
 		}
 		appConfig.resetPreferences();
