@@ -2,10 +2,14 @@ import { isToolUIPart, type UIMessage } from 'ai';
 import { z } from 'zod';
 import { STORAGE_PREFIX } from '$lib/config/settings';
 
-export const CHAT_HISTORY_KEY = `${STORAGE_PREFIX}chat-history.v1`;
-
-const historySchema = z.object({
+export const LEGACY_CHAT_HISTORY_KEY = `${STORAGE_PREFIX}chat-history.v1`;
+export const CHAT_SESSION_PREFIX = `${STORAGE_PREFIX}chat-session.v1.`;
+const sessionId = z.string().regex(/^[a-zA-Z0-9-]+$/);
+const sessionSchema = z.object({
 	version: z.literal(1),
+	id: sessionId,
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
 	messages: z.array(
 		z.object({
 			id: z.string().min(1),
@@ -16,29 +20,37 @@ const historySchema = z.object({
 	interruptedTools: z.boolean()
 });
 
-type History = z.infer<typeof historySchema>;
-type HistoryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export type ChatSession = z.infer<typeof sessionSchema>;
+type HistoryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
 
-export function loadChatHistory(storage: HistoryStorage): History | null {
-	const raw = storage.getItem(CHAT_HISTORY_KEY);
-	if (raw === null) return null;
-	const history = historySchema.parse(JSON.parse(raw));
-	if (new Set(history.messages.map((message) => message.id)).size !== history.messages.length) {
-		throw new Error('Chat history contains duplicate message IDs.');
-	}
-	return history;
+export function sessionKey(id: string) {
+	return CHAT_SESSION_PREFIX + sessionId.parse(id);
 }
 
-export function saveChatHistory(
-	storage: HistoryStorage,
-	messages: UIMessage[],
-	previouslyInterrupted: boolean
-) {
-	const textMessages: History['messages'] = [];
-	let interruptedTools = previouslyInterrupted;
+export function loadSessions(storage: HistoryStorage): ChatSession[] {
+	const sessions: ChatSession[] = [];
+	for (let index = 0; index < storage.length; index++) {
+		const key = storage.key(index);
+		if (!key?.startsWith(CHAT_SESSION_PREFIX)) continue;
+		const raw = storage.getItem(key);
+		if (raw === null) continue;
+		const session = sessionSchema.parse(JSON.parse(raw));
+		if (
+			sessionKey(session.id) !== key ||
+			new Set(session.messages.map((message) => message.id)).size !== session.messages.length
+		) {
+			throw new Error('Invalid chat session.');
+		}
+		sessions.push(session);
+	}
+	return sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export function textSnapshot(messages: UIMessage[], interruptedTools: boolean) {
+	const textMessages: ChatSession['messages'] = [];
 	for (const message of messages) {
 		if (message.role !== 'user' && message.role !== 'assistant') continue;
-		const parts: History['messages'][number]['parts'] = [];
+		const parts: ChatSession['messages'][number]['parts'] = [];
 		for (const part of message.parts) {
 			if (part.type === 'text' && part.text) parts.push({ type: 'text', text: part.text });
 			if (
@@ -47,18 +59,35 @@ export function saveChatHistory(
 					part.state === 'input-available' ||
 					part.state === 'approval-requested' ||
 					part.state === 'approval-responded')
-			) {
+			)
 				interruptedTools = true;
-			}
 		}
 		if (parts.length) textMessages.push({ id: message.id, role: message.role, parts });
 	}
-	storage.setItem(
-		CHAT_HISTORY_KEY,
-		JSON.stringify({ version: 1, messages: textMessages, interruptedTools } satisfies History)
-	);
+	return { messages: textMessages, interruptedTools };
+}
+
+export function writeSession(
+	storage: HistoryStorage,
+	session: ChatSession,
+	expected: string | null
+) {
+	const key = sessionKey(session.id);
+	if (storage.getItem(key) !== expected) throw new Error('Chat session changed in another tab.');
+	const raw = JSON.stringify(sessionSchema.parse(session));
+	storage.setItem(key, raw);
+	return raw;
+}
+
+export function deleteLegacyHistory(storage: HistoryStorage) {
+	storage.removeItem(LEGACY_CHAT_HISTORY_KEY);
 }
 
 export function clearChatHistory(storage: HistoryStorage) {
-	storage.removeItem(CHAT_HISTORY_KEY);
+	const keys: string[] = [];
+	for (let index = 0; index < storage.length; index++) {
+		const key = storage.key(index);
+		if (key === LEGACY_CHAT_HISTORY_KEY || key?.startsWith(CHAT_SESSION_PREFIX)) keys.push(key);
+	}
+	for (const key of keys) storage.removeItem(key);
 }

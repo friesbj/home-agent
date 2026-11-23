@@ -4,6 +4,21 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T17:19:22+01:00
+
+- **M2:** Implemented selectable, resumable text-chat sessions in `chat-history.ts`, `chat-session.svelte.ts`, and `ChatPanel.svelte`; reloads and new tabs start fresh while Settings navigation retains the active chat. The legacy single-chat key is deleted without altering configuration or credentials.
+- **Safety:** Session switches cancel responses and pending approvals, isolate late results, and warn about unknown action outcomes. Web Locks and stale-write checks protect stored sessions; Settings history deletion and reset also clear the in-memory chat.
+- **Validation:** `npm run check`, targeted ESLint, 10 storage/settings unit tests, 8 session Playwright tests, and onboarding/dashboard browser tests passed. Playwright's production build emitted existing Zod/Rollup annotation warnings.
+
+### 2026-11-23T17:05:49+01:00
+
+- **M2 planning:** Replaced legacy chat history migration with deletion during the session-history transition; settings and credentials remain untouched. No implementation or deletion performed.
+
+### 2026-11-23T17:03:45+01:00
+
+- **M2 planning:** Added session-based chat history, migration, lifecycle, switching safety, privacy, and testing todos to `Milestones.md`; recorded the user decisions in `AGENTS.md` and `agent-knowledge.md`.
+- **Status:** Planning only; implementation has not started.
+
 ### 2026-11-23T16:09:21+01:00
 
 - **M2:** Compared anonymized discovery and `GetLiveContext` output supplied by the user from a real Home Assistant instance against the existing gateway and policy. Added regression tests in `ha-policy.spec.ts` and `gateway.spec.ts` for observed tool prefixes, classifications, and result structure; no application behavior change was needed.

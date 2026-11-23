@@ -60,6 +60,12 @@ This file tracks project milestones and agent-owned implementation todos.
 - [x] Persist browser-side chat history when history is enabled in Settings.
 - [x] Verify the gateway against a real Home Assistant instance (tool names, prefixes, and GetLiveContext format).
   - Compared the user's anonymized real discovery and GetLiveContext output with the gateway; regression tests cover the observed names and result structure. Real mutation execution was not tested.
+- [x] Store browser text history as separately identifiable sessions; delete the legacy v1 chat history during the transition without changing settings or credentials.
+- [x] Start a new empty chat session on a new tab, browser restart, or page reload; retain the active session when returning from Settings.
+- [x] Provide an accessible session selector and resume the selected conversation with its own message context.
+- [x] On session switch, cancel ongoing responses and pending confirmations; isolate late results and warn when the outcome of an already-started action is unknown.
+- [x] Preserve history opt-out, explicit history deletion, error reporting, and cross-tab safety for session-based storage.
+- [x] Add unit and browser tests for legacy history deletion, session lifecycle and selection, cancellation, privacy settings, and concurrent tabs; update user documentation.
 
 ## M3 - GPT-Live Full-Duplex MVP
 

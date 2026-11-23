@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Chat } from '@ai-sdk/svelte';
-	import {
-		DefaultChatTransport,
-		getToolOrDynamicToolName,
-		isToolUIPart,
-		lastAssistantMessageIsCompleteWithApprovalResponses
-	} from 'ai';
+	import { getToolOrDynamicToolName, isToolUIPart } from 'ai';
 	import { appConfig } from '$lib/config/app-config.svelte';
-	import { loadSettings, STORAGE_KEYS } from '$lib/config/settings';
-	import { credentialHeaders, savedMcpTarget } from '$lib/home/api';
-	import { CHAT_HISTORY_KEY, loadChatHistory, saveChatHistory } from '$lib/home/chat-history';
+	import { textSnapshot } from '$lib/home/chat-history';
+	import { getChatSessionManager } from '$lib/home/chat-session.svelte';
 	import ToolCallCard from './ToolCallCard.svelte';
 
 	const suggestions = [
@@ -20,74 +13,50 @@
 	];
 
 	let input = $state('');
-	let historyError = $state('');
-	let interruptedTools = $state(false);
-	let historyAvailable = $state(true);
-	let initialMessages;
-	if (appConfig.settings.history.enabled) {
-		try {
-			const history = loadChatHistory(localStorage);
-			initialMessages = history?.messages;
-			interruptedTools = history?.interruptedTools ?? false;
-		} catch {
-			historyAvailable = false;
-			historyError =
-				'Chat history could not be loaded. It will not be overwritten. Check browser storage or clear chat history in Settings.';
-		}
-	}
-
-	const chat = new Chat({
-		messages: initialMessages,
-		transport: new DefaultChatTransport({
-			api: '/api/chat',
-			headers: () => credentialHeaders(savedMcpTarget()),
-			body: () => {
-				const target = savedMcpTarget();
-				return {
-					model: appConfig.settings.models.textModel,
-					confirmation: appConfig.confirmation,
-					mcp: target ? { url: target.url, transport: target.transport } : undefined
-				};
-			}
-		}),
-		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses
-	});
-
+	const manager = getChatSessionManager();
+	const chat = $derived(manager.chat);
+	let switching = $state(false);
 	const busy = $derived(chat.status === 'submitted' || chat.status === 'streaming');
 
 	onMount(() => {
-		function handleStorage(event: StorageEvent) {
-			if (
-				event.storageArea === localStorage &&
-				(event.key === STORAGE_KEYS.settings ||
-					event.key === CHAT_HISTORY_KEY ||
-					event.key === null)
-			) {
-				historyAvailable = false;
-				historyError =
-					'History or settings changed in another tab. Reload before saving chat history.';
-			}
-		}
-		window.addEventListener('storage', handleStorage);
-		return () => window.removeEventListener('storage', handleStorage);
+		void manager.initialize();
+		manager.refresh();
+		return () => {
+			void manager.cancelForNavigation();
+		};
 	});
 
 	$effect(() => {
-		if (!appConfig.settings.history.enabled || !historyAvailable) return;
-		const messages = $state.snapshot(chat.messages);
-		try {
-			if (!loadSettings(localStorage).history.enabled) return;
-			saveChatHistory(localStorage, messages, interruptedTools);
-			historyError = '';
-		} catch {
-			historyError = 'Chat history could not be saved. Check browser storage or available space.';
-		}
+		if (
+			!appConfig.settings.history.enabled ||
+			!manager.available ||
+			!manager.initialized ||
+			switching
+		)
+			return;
+		const snapshot = textSnapshot(chat.messages, manager.interruptedTools);
+		void manager.persist(snapshot.messages, snapshot.interruptedTools);
 	});
+
+	async function selectSession(id: string) {
+		if (id === manager.id || switching) return;
+		switching = true;
+		try {
+			const selected = manager.sessions.find((session) => session.id === id);
+			if (id !== 'new' && !selected) throw new Error('Chat session no longer exists.');
+			await manager.switchTo(selected);
+			input = '';
+		} catch {
+			manager.error = 'Could not open this conversation. Check browser storage and try again.';
+		} finally {
+			switching = false;
+		}
+	}
 
 	function send(text: string) {
 		const value = text.trim();
-		if (!value || busy) return;
-		interruptedTools = false;
+		if (!value || busy || switching) return;
+		manager.interruptedTools = false;
 		chat.sendMessage({ text: value });
 		input = '';
 	}
@@ -105,6 +74,7 @@
 	}
 
 	function respond(approvalId: string, approved: boolean) {
+		if (switching) return;
 		chat.addToolApprovalResponse({
 			id: approvalId,
 			approved,
@@ -124,16 +94,55 @@
 	class="flex h-full min-h-0 flex-col rounded-lg border border-stone-200 bg-white"
 	aria-label="Chat"
 >
+	{#if appConfig.settings.history.enabled}
+		<div class="flex shrink-0 items-center gap-2 border-b border-stone-200 p-3">
+			<label for="chat-session" class="text-sm font-medium text-stone-700">Conversation</label>
+			<select
+				id="chat-session"
+				class="min-w-0 flex-1 rounded-md border-stone-300 text-sm"
+				value={manager.id}
+				disabled={switching || !manager.available}
+				onchange={(event) => selectSession(event.currentTarget.value)}
+			>
+				{#if !manager.sessions.some((session) => session.id === manager.id)}
+					<option value={manager.id}>New conversation</option>
+				{/if}
+				{#each manager.sessions as session (session.id)}
+					<option value={session.id}
+						>{session.messages
+							.find((message) => message.role === 'user')
+							?.parts[0]?.text.slice(0, 60) || 'Conversation'} · {new Date(
+							session.updatedAt
+						).toLocaleString()}</option
+					>
+				{/each}
+			</select>
+			<button
+				type="button"
+				class="rounded-md border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100"
+				disabled={switching}
+				onclick={() => selectSession('new')}>New chat</button
+			>
+		</div>
+	{/if}
 	<div {@attach autoscroll} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
-		{#if historyError}
+		{#if manager.error}
 			<p class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
-				{historyError}
+				{manager.error}
 			</p>
 		{/if}
-		{#if interruptedTools}
+		{#if manager.interruptedTools}
 			<p class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-				A previous tool action was interrupted or awaiting confirmation. Its outcome is unknown;
-				check Home Assistant before trying again.
+				A previous response or tool action was interrupted or awaiting confirmation. Its outcome is
+				unknown; check Home Assistant before trying again.
+			</p>
+		{/if}
+		{#if manager.notice}
+			<p
+				class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+				role="status"
+			>
+				{manager.notice}
 			</p>
 		{/if}
 		{#if chat.messages.length === 0}
