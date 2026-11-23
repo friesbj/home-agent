@@ -231,12 +231,24 @@
 			onkeydown={handleKeydown}
 		></textarea>
 		{#if busy}
-			<button type="button" class="btn btn-secondary" onclick={() => chat.stop()}>
-				<Square size={16} aria-hidden="true" /> Stop
+			<button
+				type="button"
+				class="btn size-11 shrink-0 rounded-full p-0 btn-secondary"
+				aria-label="Stop"
+				title="Stop"
+				onclick={() => chat.stop()}
+			>
+				<Square size={16} fill="currentColor" aria-hidden="true" />
 			</button>
 		{:else}
-			<button type="submit" class="btn btn-primary" disabled={!input.trim()}>
-				<SendHorizontal size={16} aria-hidden="true" /> Send
+			<button
+				type="submit"
+				class="btn size-11 shrink-0 rounded-full p-0 btn-primary"
+				aria-label="Send"
+				title="Send"
+				disabled={!input.trim()}
+			>
+				<SendHorizontal size={20} aria-hidden="true" />
 			</button>
 		{/if}
 	</form>
