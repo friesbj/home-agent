@@ -2,6 +2,16 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-23
+
+### 2026-11-23T15:24:36+01:00
+
+- **Added:** `.github/skills/git-branching/SKILL.md`
+- **Summary:** New repository skill that checks at the start of each request whether the current branch fits the work and creates a `<type>/<topic>` branch from `main` when needed.
+- **Changed:** `.github/skills/commit-work/SKILL.md` (commit on topic branches), `AGENTS.md` (future agent instructions reference the branching workflow).
+- **Branch:** work done on `docs/git-branching-skill`.
+- **No implementation:** Documentation/process-only change.
+
 ## 2026-11-22
 
 ### 2026-11-22T16:10:00+01:00

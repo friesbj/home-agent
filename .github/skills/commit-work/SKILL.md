@@ -13,6 +13,7 @@ Use this skill whenever agent work is ready to be committed. The goals are:
 ## When to commit
 
 - After a milestone todo (or a coherent part of one) is implemented **and verified**.
+- Commit on the topic branch chosen with the `git-branching` skill, never directly on `main` for feature, fix, or docs work.
 - Before starting unrelated work, so changes do not mix.
 - Only when the user has asked for commits or explicitly authorized autonomous implementation including commits.
 - Never push, force-push, rebase, amend published commits, or rewrite history unless explicitly asked.
