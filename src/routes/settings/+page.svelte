@@ -5,12 +5,15 @@
 	import StorageNotice from '$lib/components/StorageNotice.svelte';
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { SECRET_LABELS, type SecretName } from '$lib/config/settings';
+	import { clearChatHistory } from '$lib/home/chat-history';
 
 	let { data } = $props();
 
 	let formRevision = $state(0);
 	let statusMessages = $state<string[]>([]);
 	let pendingReset = $state<'preferences' | 'all' | null>(null);
+	let pendingHistoryDeletion = $state(false);
+	let historyError = $state('');
 
 	const secretNames = Object.keys(SECRET_LABELS) as SecretName[];
 
@@ -46,6 +49,17 @@
 		appConfig.deleteSecret(name);
 		statusMessages = [`${SECRET_LABELS[name]} deleted from this browser.`];
 		formRevision++;
+	}
+
+	function deleteHistory() {
+		try {
+			clearChatHistory(localStorage);
+			pendingHistoryDeletion = false;
+			historyError = '';
+			statusMessages = ['Chat history deleted from this browser.'];
+		} catch {
+			historyError = 'Chat history could not be deleted. Check browser storage.';
+		}
 	}
 
 	async function confirmReset() {
@@ -115,6 +129,42 @@
 				</li>
 			{/each}
 		</ul>
+	</section>
+
+	<section class="space-y-3" aria-labelledby="history-heading">
+		<h2 id="history-heading" class="text-lg font-semibold text-stone-900">Chat history</h2>
+		{#if historyError}
+			<p class="text-sm text-red-700" role="alert">{historyError}</p>
+		{/if}
+		{#if pendingHistoryDeletion}
+			<div
+				class="rounded-md border border-red-300 bg-red-50 p-4"
+				role="alertdialog"
+				aria-labelledby="history-question"
+			>
+				<p id="history-question">Delete saved chat history from this browser?</p>
+				<div class="mt-3 flex gap-3">
+					<button
+						type="button"
+						class="rounded-md bg-red-700 px-3 py-1 text-white"
+						onclick={deleteHistory}>Delete history</button
+					>
+					<button
+						type="button"
+						class="rounded-md border border-stone-300 px-3 py-1"
+						onclick={() => (pendingHistoryDeletion = false)}>Cancel</button
+					>
+				</div>
+			</div>
+		{:else}
+			<button
+				type="button"
+				class="rounded-md border border-red-300 px-3 py-2 text-red-800 hover:bg-red-50"
+				onclick={() => (pendingHistoryDeletion = true)}
+			>
+				Clear chat history
+			</button>
+		{/if}
 	</section>
 
 	<section class="space-y-3" aria-labelledby="reset-heading">

@@ -304,7 +304,7 @@ Possible browser-side persistence:
 Browser-side persistence must exclude:
 
 - full raw voice recordings
-- full transcripts unless the user explicitly enables retention
+- full voice transcripts unless the user explicitly enables retention
 
 Browser-side persistence may include:
 
@@ -315,7 +315,7 @@ Browser-side persistence may include:
 - voice and model preferences
 - conversation metadata and timestamps
 - redacted tool summaries
-- optional transcript text
+- text chat messages when browser-side history is enabled; optional voice transcript text when separately enabled
 
 For the initial prototype, document each stored secret and provide Settings actions to view status, replace, and delete stored credentials. Browser Storage is not a security boundary.
 
