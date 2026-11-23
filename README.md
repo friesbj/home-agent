@@ -6,7 +6,7 @@ The application connects a text or GPT-Live chat interface with a server-side MC
 
 ## Current Status
 
-Phase 1 (Foundation) and most of Phase 2 (Text MVP) are implemented: onboarding and Settings, a text chat connected to Home Assistant through a server-side MCP gateway, an area/entity overview, visible tool calls, and server-enforced confirmation of device changes. Verification against a real Home Assistant instance remains open. GPT-Live voice follows in Phase 3.
+Phases 1 (Foundation) and 2 (Text MVP) are implemented: onboarding and Settings, a text chat connected to Home Assistant through a server-side MCP gateway, an area/entity overview, visible tool calls, and server-enforced confirmation of device changes. The gateway's tool names and result format were compared against anonymized observations from a real Home Assistant instance; real device mutations were not tested. GPT-Live voice follows in Phase 3.
 
 - Phase 1: Foundation and onboarding
 - Phase 2: Text chat with MCP and read-only Home Assistant queries

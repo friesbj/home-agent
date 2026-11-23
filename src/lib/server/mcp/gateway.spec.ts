@@ -102,6 +102,51 @@ describe('Home Assistant MCP gateway', () => {
 		]);
 	});
 
+	it('reads the observed prefixed GetLiveContext and its JSON result envelope', async () => {
+		const { client } = fakeClient();
+		client.listTools.mockResolvedValue({
+			tools: [{ name: 'homeassistant__GetLiveContext', inputSchema: { type: 'object' } }]
+		} as ListToolsResult);
+		client.callTool.mockResolvedValue({
+			content: [
+				{
+					type: 'text',
+					text: JSON.stringify({
+						result: `Live Context: An overview of the areas and the devices in this smart home:
+- names:Thermostat
+  domain: climate
+  state: heat
+  areas: Room
+  attributes:
+    current_temperature: 27.0
+    temperature_unit: °C
+    temperature: 21
+`
+					})
+				}
+			]
+		});
+		const { gateway } = await connect(client);
+
+		expect((await gateway.liveContext()).areas).toEqual([
+			{
+				name: 'Room',
+				entities: [
+					{
+						name: 'Thermostat',
+						domain: 'climate',
+						state: 'heat',
+						areas: ['Room'],
+						attributes: { current_temperature: '27.0', temperature_unit: '°C', temperature: '21' }
+					}
+				]
+			}
+		]);
+		expect(client.callTool).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'homeassistant__GetLiveContext', arguments: {} })
+		);
+	});
+
 	it('exposes only allowlisted tools and re-checks every call', async () => {
 		const { client, execute } = fakeClient();
 		const { gateway } = await connect(client);

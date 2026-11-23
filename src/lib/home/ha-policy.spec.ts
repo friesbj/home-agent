@@ -11,6 +11,31 @@ describe('Home Assistant tool policy', () => {
 		expect(classifyToolName('constructor')).toBe('blocked');
 	});
 
+	it('classifies tool names observed in the real Home Assistant discovery response', () => {
+		const observed = {
+			read: ['homeassistant__GetLiveContext', 'llm__GetDateTime'],
+			mutation: [
+				'climate__HassClimateSetTemperature',
+				'intent__HassTurnOn',
+				'intent__HassTurnOff',
+				'light__HassLightSet'
+			],
+			blocked: [
+				'assist_satellite__HassBroadcast',
+				'calendar__get_events',
+				'media_player__HassMediaPause',
+				'todo__HassListAddItem',
+				'config__reload_config_entry',
+				'homeassistant__render_template',
+				'homeassistant__call_action',
+				'search__search'
+			]
+		} as const;
+		for (const [kind, names] of Object.entries(observed)) {
+			for (const name of names) expect(classifyToolName(name)).toBe(kind);
+		}
+	});
+
 	it('allows mutations only for allowlisted domains', () => {
 		expect(evaluateToolCall('HassTurnOn', { name: 'Kitchen', domain: ['light'] })).toMatchObject({
 			kind: 'mutation',

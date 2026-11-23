@@ -4,6 +4,11 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T16:09:21+01:00
+
+- **M2 real Home Assistant comparison:** the user supplied anonymized discovery and `GetLiveContext` output from a real instance. Observed names include `homeassistant__GetLiveContext`, `llm__GetDateTime`, `intent__HassTurnOn`/`HassTurnOff`, `light__HassLightSet`, and `climate__HassClimateSetTemperature`; the existing prefix matching and policy classify them as intended.
+- **Observed context format:** JSON text with a `result` string containing the YAML-like entity list, `names`, `domain`, `state`, `areas`, and nested `attributes`. Gateway regression tests exercise this structure with synthetic names. This is a comparison of user-provided observations, not an independent live connection or a test of real mutations.
+
 ### 2026-11-23T15:42:40+01:00
 
 - **M2 text history (user decision):** the history setting permits unencrypted browser storage of text chat messages; the separate transcript setting applies to future voice transcripts. Disabling history neither loads nor updates the previously saved chat, which can be explicitly deleted in Settings.

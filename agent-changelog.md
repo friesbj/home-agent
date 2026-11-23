@@ -4,6 +4,11 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T16:09:21+01:00
+
+- **M2:** Compared anonymized discovery and `GetLiveContext` output supplied by the user from a real Home Assistant instance against the existing gateway and policy. Added regression tests in `ha-policy.spec.ts` and `gateway.spec.ts` for observed tool prefixes, classifications, and result structure; no application behavior change was needed.
+- **Validation:** 16 policy, gateway, and parser tests passed; `npm run check` and targeted ESLint passed. No independent live connection or real mutation was performed.
+
 ### 2026-11-23T15:42:40+01:00
 
 - **M2:** Added versioned browser-side text chat history in `src/lib/home/chat-history.ts`, integrated it into `ChatPanel.svelte`, and added explicit deletion in Settings. Tool data and approvals are not restored; interrupted actions are flagged. Disabling history preserves but does not load or update saved data.
