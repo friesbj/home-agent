@@ -4,6 +4,30 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T22:36:37+01:00
+
+- **Plan review:** Checked M3 to M5 and the phase descriptions against `Design.md`. Revised the M3, M4, and M5 todos in `Milestones.md`, added Phase 2a and aligned Phases 3 and 4, the frontend overview, and the testing strategy in `AGENTS.md`, and added live captions and design requirements for later milestones to `Design.md`.
+- **Status:** Planning only; no implementation and no tests required.
+
+### 2026-11-23T22:27:27+01:00
+
+- **M2a planning:** Reworked `Design.md` around the user's mobile reference screen, stored as `docs/design/reference-mobile-home.png`: Home-first navigation with a center orb, glass surfaces, the orb as the assistant's signature, a palette sampled from the reference, a font and icon direction, assistant shortcuts, and a reference-to-product mapping. Revised the M2a todos in `Milestones.md`, clarified M4 quick actions, and recorded the decisions in `AGENTS.md` and `agent-knowledge.md`.
+- **Status:** Planning only; no UI implemented. Contrast figures in `Design.md` are preliminary calculations from sampled pixels, not measurements of a rendered interface.
+
+### 2026-11-23T22:02:59+01:00
+
+- **M2a documentation:** Translated `Design.md` into English and added the repository-wide project-context language rule to `AGENTS.md` and `agent-knowledge.md`. Documentation only; no application behavior changed.
+
+### 2026-11-23T17:57:23+01:00
+
+- **M2a planning:** Added the project-wide, evolving `Design.md` with the existing UI assessment, Ambient Home design system, responsive layouts, safety and accessibility principles, future voice concept, and incremental rollout. Linked it from `Milestones.md`, `AGENTS.md`, and `README.md`; updated `agent-knowledge.md`.
+- **Status:** Documentation only; no UI or voice implementation and no tests required.
+
+### 2026-11-23T17:52:19+01:00
+
+- **M2a planning:** Inspected the existing routes, components, Tailwind setup, and project context. Added mobile-first product-design work and verification criteria to `Milestones.md`; updated the target in `AGENTS.md` and recorded the design direction in `agent-knowledge.md`.
+- **Status:** Planning only; no UI or voice implementation. No tests run for documentation-only changes.
+
 ### 2026-11-23T17:38:19+01:00
 
 - **M2:** Added safe assistant Markdown rendering in `MarkdownMessage.svelte` and `ChatPanel.svelte`, with tables, fenced code blocks, scrollable wide content, escaped raw HTML, sanitized links, and no automatic image loading. Saved conversations render the same way; user messages remain plain text.

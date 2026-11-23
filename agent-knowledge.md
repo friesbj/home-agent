@@ -4,9 +4,30 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T22:36:37+01:00
+
+- **Plan review against the design:** later milestones extend the M2a views instead of adding new ones. M3 builds voice mode inside the Assistant view and switches the orb to a microphone; M4 adds live status, a server-side path for direct actions, quick actions with a confirmation sheet, and the Activity view; M5 adds login screens and a Content Security Policy.
+- **Open decisions recorded in `Milestones.md`:** whether a spoken confirmation may approve an action (default: on-screen control only) and whether scene tiles become direct actions in M4 or remain assistant shortcuts.
+- **Plan corrections:** M3 implements Responses delegation as already decided; the M4 settings todo was already delivered by the M1 Settings flow.
+
+### 2026-11-23T22:27:27+01:00
+
+- **M2a visual reference (user decision):** `docs/design/reference-mobile-home.png` is the model for the whole design milestone: deep navy background with blue-violet light fields, translucent glass cards, a glowing network orb, and a bottom bar with Home, a center orb, and Settings. `Design.md` records palette values sampled from it and maps each reference element to the product.
+- **Navigation and actions (user decisions):** Home is the mobile start view; the center orb opens the text assistant until M3 adds voice, so it must not show a microphone before then. Home cards are read-only in M2a; scene tiles submit a request to the assistant and use the existing confirmation. Direct switches stay in M4. The greeting uses an optional display name from Settings.
+- **Constraints found:** `ChatPanel` cancels in-progress work on unmount, so the new shell must keep the conversation alive between Home and Assistant. There is no direct action endpoint and no user-name setting. Home Assistant scenes have no on/off state, so scene tiles cannot show an "active" state.
+
 ### 2026-11-23T22:02:59+01:00
 
 - **Documentation language (user requirement):** write all repository project context in English, including the evolving design documentation.
+
+### 2026-11-23T17:57:23+01:00
+
+- **Project-wide design:** `Design.md` is the living UI/UX direction for the whole product, including future features. Read and evolve it during UI work; M2a remains planned, and the voice interaction itself remains in M3.
+
+### 2026-11-23T17:52:19+01:00
+
+- **M2a design direction (user request, planned):** move from desktop-first to mobile-first while preserving existing MVP functionality. Use an original, calm dark blue/indigo/violet visual language across chat, home overview, onboarding, and Settings; design an immersive voice experience, but leave voice implementation to M3.
+- **Safety and accessibility:** keep read-only status distinct from state-changing actions, preserve server-side authorization and confirmation, and ensure the visual system works without relying on color or motion alone.
 
 ### 2026-11-23T17:38:19+01:00
 

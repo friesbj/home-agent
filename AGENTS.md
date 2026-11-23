@@ -10,7 +10,7 @@
 - **AI SDK:** Vercel AI SDK
 - **Testing:** Vitest, Svelte component tests, Playwright
 - **Linting and formatting:** ESLint and Prettier
-- **Target:** Desktop-first responsive smart-home frontend
+- **Target:** Mobile-first responsive smart-home frontend, with tablet and desktop layouts
 
 ---
 
@@ -29,6 +29,10 @@ This section is the implementation plan for future coding sessions.
 ## Confirmed Product Decisions
 
 - The first deliverable is a public-facing text chat MVP.
+- M2a plans a coherent, dark, premium mobile-first design for the existing MVP; the immersive voice experience is a design concept until M3 implements voice.
+- The user's reference screen in `docs/design/reference-mobile-home.png` is the visual model for M2a. Mobile navigation is Home, a center orb that opens the assistant (text until M3 adds voice), and Settings.
+- In M2a, Home shows read-only summaries; scene tiles are assistant shortcuts that go through the existing confirmation flow. Direct device switches outside the conversation belong to M4.
+- The greeting uses the time of day and an optional display name from Settings.
 - Browser voice uses OpenAI GPT-Live over WebRTC.
 - GPT-Live is a full-duplex conversation model that listens and speaks independently of a separate backend reasoning model.
 - Backend work is called delegation. The frontend/live model decides when to delegate, while the backend model reasons, uses tools, and returns results.
@@ -219,7 +223,9 @@ Changing the confirmation policy in Settings applies to future actions immediate
 
 # Proposed Frontend
 
-The UI should be structured around four areas:
+`Design.md` defines the arrangement and visual system of the areas below: the conversation panel is the Assistant view, the smart-home overview is Home, and activity is reached from the Home header.
+
+The UI should be structured around these areas:
 
 1. **Conversation panel**
    - live transcript
@@ -254,7 +260,7 @@ The UI should be structured around four areas:
    - timestamps
    - no secrets or raw token values
 
-Use neutral, calm colors and avoid relying on color alone to communicate device or connection state.
+Follow the visual system in `Design.md` and avoid relying on color alone to communicate device or connection state.
 
 # Safety and Confirmation Policy
 
@@ -380,6 +386,14 @@ Before implementation:
 - Display tool calls and results
 - Add basic action confirmation
 
+## Phase 2a: Product Design
+
+- Establish the design foundation and the assistant orb described in `Design.md`
+- Build the mobile-first shell with Home, Assistant, and Settings
+- Redesign Home, the Assistant view, onboarding, and Settings without changing data flow or security policy
+- Offer scene tiles as assistant shortcuts through the existing confirmation flow
+- Specify the voice mode for Phase 3
+
 ## Phase 3: GPT-Live Full-Duplex MVP
 
 - Add ephemeral GPT-Live session creation on the trusted server.
@@ -393,15 +407,15 @@ Before implementation:
 - Validate permissions and confirmations before executing any mutating call.
 - Return tool and MCP results to GPT-Live and allow it to continue speaking independently.
 - Support interruption, cancellation/continuation policy, and text fallback.
+- Build the voice mode specified in `Design.md` inside the Assistant view and switch the assistant entry points to voice.
 
 ## Phase 4: Smart-Home Dashboard
 
-- Add area and entity discovery
-- Add favorites and quick actions
-- Add live entity updates
-- Add action history
-- Add settings and voice preferences
-- Improve responsive layout and accessibility
+- Add favorite entities to the Home dashboard from Phase 2a
+- Add live entity updates with a visible live status
+- Add a server-side path for direct device actions and quick actions with confirmation
+- Add action history as the Activity view
+- Validate the new features for responsive layout and accessibility
 
 ## Phase 5: Hardening
 
@@ -414,10 +428,10 @@ Before implementation:
 
 # Testing Strategy
 
-- **Unit:** environment validation, authorization policy, MCP parameter validation, action classification
-- **Component:** chat states, microphone states, transcript rendering, confirmation dialogs
+- **Unit:** environment validation, authorization policy, MCP parameter validation, action classification, Home summaries
+- **Component:** chat states, microphone states, transcript rendering, confirmation dialogs, navigation shell, orb and voice states including reduced motion
 - **Integration:** OpenAI adapter, MCP gateway, mocked Home Assistant MCP server
-- **End-to-end:** login, text chat, read-only entity discovery, approved action, denied action, voice connection state
+- **End-to-end:** login, text chat, read-only entity discovery, approved action, denied action, assistant shortcut through confirmation, voice connection state
 - **Security:** secret redaction, no secrets in logs or UI labels, browser credential deletion and replacement, expired sessions, cross-user isolation, allowlist bypass attempts
 
 Testing must use mocks or a test Home Assistant instance; no real smart-home command should run in automated tests.
@@ -451,6 +465,7 @@ For later implementation sessions:
 - Write all project context in the repository in English.
 - Read this file before making code changes.
 - Read `agent-knowledge.md`, `Milestones.md`, and recent `agent-changelog.md` entries before planning or implementation.
+- Read `Design.md` before planning or implementing UI/UX work; evolve it as the shared product design changes.
 - Use the repository skills under `.github/skills/agent-knowledge`, `.github/skills/agent-changelog`, `.github/skills/milestones`, `.github/skills/git-branching`, and `.github/skills/commit-work`.
 - At the start of every user request that may change files, use the `git-branching` skill: check whether the current branch fits the work; if a new or different branch is advisable, ask the user before creating or switching. Do not merge, push, or delete branches without the user's request.
 - Commit verified work with the `commit-work` skill: small, self-contained, conventional commits linked to milestones so each can be reverted independently.

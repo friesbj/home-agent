@@ -68,35 +68,59 @@ This file tracks project milestones and agent-owned implementation todos.
 - [x] Add unit and browser tests for legacy history deletion, session lifecycle and selection, cancellation, privacy settings, and concurrent tabs; update user documentation.
 - [x] Render assistant Markdown, tables, and code blocks safely in the text chat.
 
+## M2a - Mobile-First Product Design
+
+Design direction: see [Design.md](./Design.md) for the living, project-wide "ambient home" concept and rollout. The user's [mobile reference screen](./docs/design/reference-mobile-home.png) is the visual model for the whole milestone. Preserve existing chat, settings, onboarding, history, MCP, and confirmation behavior. This is a design and frontend milestone; actual voice capability remains in M3 and direct device switches remain in M4.
+
+- [ ] Establish the design foundation: semantic tokens and Tailwind theme mappings, ambient background, self-hosted font, glass and solid surfaces, focus, motion, and status styles, an icon set, and the reusable assistant orb; verify accessible contrast.
+- [ ] Build the mobile-first app shell with Home, Assistant, and Settings: bottom navigation with the center orb opening the text assistant, and a side-by-side layout on larger screens. Keep the active conversation, responses, and pending approvals intact when switching between Home and Assistant.
+- [ ] Redesign Home as a glanceable dashboard: greeting with optional display name, data-derived status sentence, assistant entry card, read-only light and climate summaries, and collapsible rooms with refresh and freshness states; retain favorites and existing entity behavior.
+- [ ] Add assistant shortcuts for scenes: a tile submits a visible request to the conversation and goes through the existing server-side confirmation; no new action endpoint.
+- [ ] Redesign the Assistant view: text chat, session selection, Markdown, tool status, and approval presentation; keep input accessible and preserve the existing server-side approval flow.
+- [ ] Apply the same design system to onboarding and Settings, including the optional display name, keeping credential notices, validation, connection testing, confirmation preferences, and reset safeguards visible and functional.
+- [ ] Specify the future voice screen and its listening, speaking, thinking, tool-use, confirmation, and error states; implement actual voice interaction only in M3.
+- [ ] Validate against the reference and across mobile, tablet, and desktop layouts: keyboard and screen-reader access, reduced motion, zoom, touch targets, and existing chat, settings, history, and approval workflows using mocked services.
+
 ## M3 - GPT-Live Full-Duplex MVP
+
+M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 implements it inside the Assistant view.
 
 - [ ] Create trusted-server GPT-Live session provisioning.
 - [ ] Implement browser WebRTC microphone/speaker/audio tracks.
 - [ ] Add Live data-channel event handling.
 - [ ] Configure `gpt-live-1.1` separately from the backend reasoning model.
-- [ ] Choose and implement Responses or client delegation.
+- [ ] Implement Responses delegation, as decided in M0; client delegation remains a later option.
 - [ ] Connect delegated MCP/Home Assistant tools.
-- [ ] Implement tool-result continuation and confirmation handling.
+- [ ] Implement tool-result continuation and confirmation handling; show confirmations on the solid confirmation surface in voice mode.
+  - Open decision: whether a spoken confirmation may approve an action. Until decided, approval requires the on-screen control.
 - [ ] Add interrupt/cancel/continue behavior.
-- [ ] Keep text chat as fallback.
-- [ ] Add GPT-Live integration tests with mocked MCP/Home Assistant services.
+- [ ] Build the voice mode screen: large orb, connection and microphone permission states, overlapping listening, speaking, and delegation states, tool activity, live captions, and error and reconnect states, each with a text equivalent and a reduced-motion variant.
+- [ ] Drive orb motion only from real audio levels and session state.
+- [ ] Switch the assistant entry points to voice once it works: microphone glyph and voice hint on the navigation orb and a voice offer in the Home entry card.
+- [ ] Keep text chat as fallback, reachable in the same Assistant view with a visible switch between voice and text.
+- [ ] Add GPT-Live integration tests with mocked MCP/Home Assistant services and component tests for the voice states.
 
 ## M4 - Smart-Home Dashboard
 
-- [ ] Add area and favorite entity discovery.
-- [ ] Add live entity state updates.
-- [ ] Add quick actions.
-- [ ] Add action history.
-- [ ] Add voice, model, confirmation, and MCP settings.
-- [ ] Improve responsive layout and accessibility.
+M2a delivers the Home layout, read-only summaries, rooms, and assistant shortcuts. M4 adds live data and direct control within that design; see [Design.md](./Design.md#design-requirements-for-later-milestones).
+
+- [ ] Add favorite entities and show them on Home; areas and favorite areas already exist.
+- [ ] Add live entity state updates; replace Home's fetch time and manual refresh with a live status indicator, and fall back visibly to the last fetched state when the connection drops.
+- [ ] Add a server-side path for direct device actions outside the conversation that enforces the same tool allowlist and confirmation policy.
+- [ ] Add quick actions on Home: the Lights switch, one-tap scenes, and device controls in rooms, with a confirmation sheet for actions that require it and a pending state until the result is known.
+  - Open decision: whether scene tiles become direct actions or remain assistant shortcuts.
+- [ ] Add action history as the Activity view behind the Home header button; M2a provides only the indicator.
+- [x] Add voice, model, confirmation, and MCP settings. (Delivered with the M1 Settings flow; restyled in M2a.)
+- [ ] Validate the new dashboard features against Design.md for responsive layout and accessibility; M2a covers the base layout.
 
 ## M5 - Public-Internet Hardening
 
-- [ ] Move secrets out of Browser Storage to server-side provisioning.
-- [ ] Use server-side sessions and ownership checks.
+- [ ] Move secrets out of Browser Storage to server-side provisioning; update onboarding, Settings, and the storage notices to match.
+- [ ] Use server-side sessions and ownership checks; add login and session-expiry screens in the shared design system.
 - [ ] Restrict CORS and allowed MCP origins.
 - [ ] Add tool/entity allowlists.
 - [ ] Add audit logs with secret redaction.
-- [ ] Add confirmation/denial and authorization bypass tests.
-- [ ] Review voice/transcript retention.
+- [ ] Add confirmation/denial and authorization bypass tests covering the conversation, assistant shortcuts, quick actions, and voice.
+- [ ] Review voice/transcript retention, including live captions in voice mode.
+- [ ] Set a Content Security Policy that fits the design's self-hosted font and icons and allows no third-party asset requests.
 - [ ] Configure deployment and verify HTTPS.

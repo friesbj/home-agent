@@ -10,11 +10,12 @@ Phases 1 (Foundation) and 2 (Text MVP) are implemented: onboarding and Settings,
 
 - Phase 1: Foundation and onboarding
 - Phase 2: Text chat with MCP and read-only Home Assistant queries
+- M2a: Mobile-first product design (planned)
 - Phase 3: GPT-Live with WebRTC and duplex delegation
 - Phase 4: Smart-home dashboard
 - Phase 5: Public-internet hardening
 
-Concrete tasks and decisions are maintained in [AGENTS.md](./AGENTS.md), [Milestones.md](./Milestones.md), [agent-knowledge.md](./agent-knowledge.md), and [agent-changelog.md](./agent-changelog.md).
+Concrete tasks and decisions are maintained in [AGENTS.md](./AGENTS.md), [Milestones.md](./Milestones.md), [agent-knowledge.md](./agent-knowledge.md), and [agent-changelog.md](./agent-changelog.md). The evolving project-wide UI/UX direction is documented in [Design.md](./Design.md).
 
 ## Planned Architecture
 
