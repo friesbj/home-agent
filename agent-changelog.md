@@ -4,6 +4,11 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T16:09:21+01:00
+
+- **M2:** Compared anonymized discovery and `GetLiveContext` output supplied by the user from a real Home Assistant instance against the existing gateway and policy. Added regression tests in `ha-policy.spec.ts` and `gateway.spec.ts` for observed tool prefixes, classifications, and result structure; no application behavior change was needed.
+- **Validation:** 16 policy, gateway, and parser tests passed; `npm run check` and targeted ESLint passed. No independent live connection or real mutation was performed.
+
 ### 2026-11-23T15:28:08+01:00
 
 - **Changed:** `.github/skills/git-branching/SKILL.md`: creating or switching a branch now always requires the user's confirmation via `ask_user` (recommended option as default, alternatives, handling of uncommitted changes). Staying on the current branch for the same topic needs no question. Reusing a merged branch is allowed when the user chooses it (fast-forward it to `main` first).

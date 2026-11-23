@@ -58,7 +58,8 @@ This file tracks project milestones and agent-owned implementation todos.
 - [x] Add basic mutating-action confirmation.
 - [x] Add text chat integration and security tests.
 - [ ] Persist browser-side chat history when history is enabled in Settings.
-- [ ] Verify the gateway against a real Home Assistant instance (tool names, prefixes, and GetLiveContext format).
+- [x] Verify the gateway against a real Home Assistant instance (tool names, prefixes, and GetLiveContext format).
+  - Compared the user's anonymized real discovery and GetLiveContext output with the gateway; regression tests cover the observed names and result structure. Real mutation execution was not tested.
 
 ## M3 - GPT-Live Full-Duplex MVP
 
