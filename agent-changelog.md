@@ -4,6 +4,26 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T23:18:37+01:00
+
+- **Test stabilization:** The cross-tab test in `e2e/chat-history.test.ts` was flaky under parallel runs, also on `main` (3/3 full runs failed there). Its storage snapshot could precede the other tab's write. It now waits for that write before snapshotting; the asserted behavior is unchanged.
+- **Readiness check:** `npm run check` (0 errors), `npx eslint .` (clean), `npx vitest run` (80/80), and three full `npx playwright test` runs (14/14 each) passed. `npx prettier --check .` reports 19 files, all also failing on `main` because of CRLF working-tree line endings (`core.autocrlf=true`); every file changed on this branch passes Prettier except the three context Markdown files, which already failed on `main`.
+
+### 2026-11-23T23:07:46+01:00
+
+- **M2a planning:** Updated `Design.md` and `Milestones.md` with the desktop Assistant's prominent empty-state orb and compact conversational header orb; aligned the M3 voice transition and recorded the decision in `agent-knowledge.md`.
+- **Validation:** Documentation-only change; no tests run.
+
+### 2026-11-23T23:05:58+01:00
+
+- **M2a navigation:** Enlarged and raised the center menu orb in `AssistantOrb.svelte` and `+page.svelte`, without changing the Home card orb. Extended the narrow-screen test in `e2e/home.test.ts` to check navigation spacing and composer clearance.
+- **Validation:** The focused Playwright test, `npm run check`, targeted ESLint, and Prettier checks passed. Inspected the mobile view with mocked services.
+
+### 2026-11-23T22:57:30+01:00
+
+- **M2a initial slice:** Added the ambient shell, font, icons, original orb, mobile Home/Assistant/Settings navigation, and desktop split in `src/routes/+page.svelte`, `src/routes/layout.css`, and `src/lib/components/AssistantOrb.svelte`. Preserved mounted chat state and fixed narrow-screen input overflow in `ChatPanel.svelte`; added focused mobile navigation tests in `e2e/home.test.ts` and `e2e/chat-history.test.ts`. Updated dependencies, `Design.md`, and milestone status.
+- **Validation:** `npm run check` and targeted ESLint passed; the build completed during Playwright runs. Mobile navigation, pending approval, narrow-screen, and desktop viewport tests passed. The combined Playwright selection had 12 of 13 pass; the existing cross-tab test intermittently snapshots storage before the other tab's latest write (three isolated repeats passed). `npm audit --omit=dev` reported no production vulnerabilities. Mobile visuals were inspected with mocked services; complete contrast and accessibility validation remains open.
+
 ### 2026-11-23T22:36:37+01:00
 
 - **Plan review:** Checked M3 to M5 and the phase descriptions against `Design.md`. Revised the M3, M4, and M5 todos in `Milestones.md`, added Phase 2a and aligned Phases 3 and 4, the frontend overview, and the testing strategy in `AGENTS.md`, and added live captions and design requirements for later milestones to `Design.md`.

@@ -4,6 +4,20 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T23:18:37+01:00
+
+- **Prettier on Windows:** `core.autocrlf=true` gives working-tree files CRLF endings, so `npx prettier --check .` reports many unchanged files. Judge formatting by the files you changed, or compare against `main`, before treating it as a regression.
+- **Flaky-test diagnosis:** compare a failing test against `main` in a temporary `git worktree` (with a `node_modules` junction). Remove that junction with `cmd /c rmdir` only, never with recursive `Remove-Item`, so the shared `node_modules` stays intact.
+
+### 2026-11-23T23:07:46+01:00
+
+- **M2a desktop orb:** The user wants the orb to be a central desktop element too. The agreed direction places a prominent orb in the empty Assistant panel and a compact orb in its header during conversations; the immersive voice orb remains in M3.
+
+### 2026-11-23T22:57:30+01:00
+
+- **M2a initial shell:** `src/routes/+page.svelte` keeps both Home and Assistant mounted on mobile and hides the inactive view, because unmounting `ChatPanel` cancels work. Switching views scrolls to the top; Settings remains a separate route with its existing cancellation behavior.
+- **Initial design choices:** Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans`, icons use `@lucide/svelte`, and the orb is original static SVG/CSS. Home and chat still use their light surfaces pending their dedicated M2a redesigns.
+
 ### 2026-11-23T22:36:37+01:00
 
 - **Plan review against the design:** later milestones extend the M2a views instead of adding new ones. M3 builds voice mode inside the Assistant view and switches the orb to a microphone; M4 adds live status, a server-side path for direct actions, quick actions with a confirmation sheet, and the Activity view; M5 adds login screens and a Content Security Policy.
