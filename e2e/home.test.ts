@@ -5,13 +5,12 @@ const MCP_URL = 'http://127.0.0.1:4180/api/mcp';
 test('tests the MCP connection during onboarding and shows the home overview', async ({ page }) => {
 	await page.goto('/onboarding');
 	await page.getByLabel(/Server address/).fill(MCP_URL);
-	await page.getByLabel('Authentication').selectOption('bearer');
 
-	await page.getByLabel('MCP bearer token').fill('wrong-token');
+	await page.getByLabel('Access token', { exact: true }).fill('wrong-token');
 	await page.getByRole('button', { name: 'Test connection' }).click();
 	await expect(page.getByText('The MCP server rejected the credentials.')).toBeVisible();
 
-	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByRole('button', { name: 'Test connection' }).click();
 	await expect(
 		page.getByText(
@@ -22,7 +21,7 @@ test('tests the MCP connection during onboarding and shows the home overview', a
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 
-	const home = page.getByRole('region', { name: 'Your home' });
+	const home = page.getByRole('region', { name: 'Rooms' });
 	await expect(home.getByRole('heading', { name: 'Kitchen' })).toBeVisible();
 	await expect(home.getByRole('heading', { name: 'Living Room' })).toBeVisible();
 	await expect(home.getByText('Kitchen Light')).toBeHidden();
@@ -36,12 +35,11 @@ test('keeps the chat input visible with many areas on a laptop-sized screen', as
 	await page.setViewportSize({ width: 1280, height: 720 });
 	await page.goto('/onboarding');
 	await page.getByLabel(/Server address/).fill(MCP_URL);
-	await page.getByLabel('Authentication').selectOption('bearer');
-	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 
-	const home = page.getByRole('region', { name: 'Your home' });
+	const home = page.getByRole('region', { name: 'Rooms' });
 	await home.getByRole('button', { name: 'Expand all' }).click();
 
 	await expect(page.getByLabel('Message')).toBeInViewport();
@@ -54,8 +52,7 @@ test('opens the assistant from a scrolled home view on a small screen', async ({
 	await page.setViewportSize({ width: 320, height: 640 });
 	await page.goto('/onboarding');
 	await page.getByLabel(/Server address/).fill(MCP_URL);
-	await page.getByLabel('Authentication').selectOption('bearer');
-	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 	const navigation = page.getByRole('navigation', { name: 'Main navigation' });

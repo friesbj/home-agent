@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DynamicToolUIPart, ToolUIPart } from 'ai';
+	import { Ban, Eye, PenLine } from '@lucide/svelte';
 	import { baseToolName, classifyToolName, describeToolCall } from '$lib/home/ha-policy';
 
 	interface Props {
@@ -21,19 +22,19 @@
 		switch (part.state) {
 			case 'input-streaming':
 			case 'input-available':
-				return { text: 'Running…', tone: 'text-stone-600' };
+				return { text: 'Running…', tone: 'text-ink-muted' };
 			case 'approval-requested':
-				return { text: 'Waiting for your confirmation', tone: 'text-amber-800' };
+				return { text: 'Waiting for your confirmation', tone: 'text-warning' };
 			case 'approval-responded':
 				return part.approval.approved
-					? { text: 'Approved, running…', tone: 'text-stone-600' }
-					: { text: 'Denied', tone: 'text-stone-600' };
+					? { text: 'Approved, running…', tone: 'text-ink-muted' }
+					: { text: 'Denied', tone: 'text-ink-muted' };
 			case 'output-available':
-				return { text: 'Done', tone: 'text-emerald-800' };
+				return { text: 'Done', tone: 'text-success' };
 			case 'output-error':
-				return { text: 'Failed', tone: 'text-red-700' };
+				return { text: 'Failed', tone: 'text-danger' };
 			case 'output-denied':
-				return { text: 'Not executed', tone: 'text-stone-600' };
+				return { text: 'Not executed', tone: 'text-ink-muted' };
 			default:
 				return { text: '', tone: '' };
 		}
@@ -53,50 +54,68 @@
 </script>
 
 <div
-	class="rounded-md border p-3 text-sm {part.state === 'approval-requested'
-		? 'border-amber-400 bg-amber-50'
-		: 'border-stone-200 bg-stone-50'}"
+	class={[
+		'rounded-tile p-3 text-sm surface-solid',
+		part.state === 'approval-requested' && 'border-l-4 border-l-warning'
+	]}
 >
 	<div class="flex flex-wrap items-center justify-between gap-2">
-		<span class="font-medium text-stone-800">
-			<span class="rounded bg-stone-200 px-1.5 py-0.5 text-xs tracking-wide uppercase">
+		<span class="flex min-w-0 items-center gap-2 font-medium">
+			<span
+				class={[
+					'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wide uppercase',
+					kind === 'mutation' && 'border-warning/50 text-warning',
+					kind === 'read' && 'border-cool/50 text-cool',
+					kind === 'blocked' && 'border-danger/50 text-danger'
+				]}
+			>
+				{#if kind === 'mutation'}<PenLine
+						size={12}
+						aria-hidden="true"
+					/>{:else if kind === 'read'}<Eye size={12} aria-hidden="true" />{:else}<Ban
+						size={12}
+						aria-hidden="true"
+					/>{/if}
 				{kind === 'mutation' ? 'Change' : kind === 'read' ? 'Read' : 'Blocked'}
 			</span>
-			<span class="ml-1 font-mono">{label}</span>
+			<span class="truncate font-mono text-ink-muted">{label}</span>
 		</span>
-		<span class={status.tone}>{status.text}</span>
+		<span class={['font-medium', status.tone]}>{status.text}</span>
 	</div>
 
 	{#if summary}
-		<p class="mt-1 text-stone-800">{summary}</p>
+		<p class="mt-2 text-base">{summary}</p>
 	{/if}
 
 	{#if part.state === 'approval-requested'}
-		<div class="mt-3 flex gap-2" role="group" aria-label="Confirm {label}">
+		<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Confirm {label}">
 			<button
 				type="button"
-				class="rounded-md bg-stone-900 px-3 py-1 text-white hover:bg-stone-700"
+				class="btn btn-primary"
 				onclick={() => onrespond(part.approval.id, true)}
 			>
 				Approve
 			</button>
 			<button
 				type="button"
-				class="rounded-md border border-stone-300 bg-white px-3 py-1 hover:bg-stone-100"
+				class="btn btn-secondary"
 				onclick={() => onrespond(part.approval.id, false)}
 			>
 				Deny
 			</button>
 		</div>
 	{:else if part.state === 'output-error'}
-		<p class="mt-1 text-red-700">{part.errorText}</p>
+		<p class="mt-2 text-danger">{part.errorText}</p>
 	{:else if part.state === 'output-denied' && part.approval.reason}
-		<p class="mt-1 text-stone-600">{part.approval.reason}</p>
+		<p class="mt-2 text-ink-muted">{part.approval.reason}</p>
 	{:else if part.state === 'output-available'}
 		<details class="mt-2">
-			<summary class="cursor-pointer text-stone-600">Show result</summary>
+			<summary
+				class="inline-flex min-h-11 cursor-pointer items-center text-ink-muted hover:text-ink"
+				>Show result</summary
+			>
 			<pre
-				class="mt-2 max-h-64 overflow-auto rounded bg-white p-2 text-xs whitespace-pre-wrap">{formatOutput(
+				class="mt-1 max-h-64 overflow-auto rounded-control bg-[#0f1733] p-3 text-xs whitespace-pre-wrap">{formatOutput(
 					part.output
 				)}</pre>
 		</details>

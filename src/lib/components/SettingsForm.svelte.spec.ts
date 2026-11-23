@@ -35,8 +35,7 @@ describe('SettingsForm', () => {
 	it('saves normalized settings and entered secrets', async () => {
 		const onsave = renderForm();
 		await page.getByLabelText(/Server address/).fill(' https://MCP.example.com/mcp ');
-		await page.getByLabelText('Authentication').selectOptions('bearer');
-		await page.getByLabelText('MCP bearer token').fill('token-123');
+		await page.getByLabelText('Access token', { exact: true }).fill('token-123');
 		await page.getByRole('button', { name: 'Save' }).click();
 
 		expect(onsave).toHaveBeenCalledOnce();
@@ -52,6 +51,8 @@ describe('SettingsForm', () => {
 	it('requires acknowledgement before disabling confirmations', async () => {
 		const onsave = renderForm();
 		await page.getByLabelText(/Server address/).fill('https://mcp.example.com');
+		await page.getByLabelText('Access token', { exact: true }).fill('token-123');
+		await page.getByText('Advanced settings', { exact: true }).click();
 		await page.getByLabelText(/No confirmation/).click();
 		await page.getByRole('button', { name: 'Save' }).click();
 		await expect
@@ -65,5 +66,26 @@ describe('SettingsForm', () => {
 			mode: 'none',
 			acknowledgedNoConfirmationRisk: true
 		});
+	});
+
+	it('shows only the essential fields and opens Advanced settings for hidden errors', async () => {
+		const onsave = renderForm();
+		await expect.element(page.getByText('Advanced settings', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Voice', { exact: true })).not.toBeVisible();
+		await expect
+			.element(page.getByText('Every change to your home asks for your confirmation first.'))
+			.toBeVisible();
+
+		await page.getByLabelText(/Server address/).fill('https://mcp.example.com');
+		await page.getByLabelText('Access token', { exact: true }).fill('token-123');
+		await page.getByText('Advanced settings', { exact: true }).click();
+		await page.getByLabelText('Voice', { exact: true }).fill('not a voice!');
+		await page.getByText('Advanced settings', { exact: true }).click();
+		await expect.element(page.getByLabelText('Voice', { exact: true })).not.toBeVisible();
+
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect.element(page.getByLabelText('Voice', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Voice', { exact: true })).toHaveFocus();
+		expect(onsave).not.toHaveBeenCalled();
 	});
 });

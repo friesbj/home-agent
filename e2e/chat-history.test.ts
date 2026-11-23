@@ -5,8 +5,7 @@ const MCP_URL = 'http://127.0.0.1:4180/api/mcp';
 async function setup(page: Page) {
 	await page.goto('/onboarding');
 	await page.getByLabel(/Server address/).fill(MCP_URL);
-	await page.getByLabel('Authentication').selectOption('bearer');
-	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 	await expect(page).toHaveURL(/\/$/);
@@ -67,6 +66,49 @@ test('mobile navigation preserves a running response and its pending approval', 
 	await page.getByRole('button', { name: 'Open text assistant' }).click();
 	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
 	await expect(page.getByText('Turn on the light', { exact: true })).toBeVisible();
+});
+
+test('scene shortcuts send a visible request through the confirmation flow', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	const requests: { messages: { parts: { text?: string }[] }[] }[] = [];
+	await page.route('**/api/chat', async (route) => {
+		requests.push(route.request().postDataJSON());
+		await route.fulfill({
+			headers: { 'content-type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+			body: stream([
+				{ type: 'start', messageId: 'scene-approval' },
+				{
+					type: 'tool-input-available',
+					toolCallId: 'call',
+					toolName: 'HassTurnOn',
+					input: { name: 'Movie Night', domain: ['scene'] },
+					dynamic: true
+				},
+				{
+					type: 'tool-approval-request',
+					toolCallId: 'call',
+					approvalId: 'approval',
+					reason: 'Activate Movie Night'
+				},
+				{ type: 'finish' }
+			])
+		});
+	});
+	await setup(page);
+	await page.getByRole('button', { name: 'Movie Night' }).click();
+
+	await expect(page.getByText('Activate the scene "Movie Night".', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+	expect(requests).toHaveLength(1);
+	expect(requests[0].messages.at(-1)?.parts.map((part) => part.text)).toContain(
+		'Activate the scene "Movie Night".'
+	);
+
+	await page.getByRole('button', { name: 'Home', exact: true }).click();
+	const tile = page.getByRole('button', { name: 'Movie Night' });
+	await expect(tile).toBeDisabled();
+	await expect(page.getByText('Answer the pending confirmation first.')).toBeVisible();
+	expect(requests).toHaveLength(1);
 });
 
 test('renders assistant Markdown and restored history without formatting user messages', async ({
@@ -277,6 +319,7 @@ test('honors disabled history and clear history while preserving credentials', a
 	await send(page, 'Saved message');
 	await expect(page.getByText('OK')).toBeVisible();
 	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByText('Advanced settings', { exact: true }).click();
 	await page.getByLabel('Keep text chat history in this browser').uncheck();
 	await page.getByRole('button', { name: 'Save settings' }).click();
 	await page.getByRole('link', { name: 'Back to assistant' }).click();
@@ -286,6 +329,7 @@ test('honors disabled history and clear history while preserving credentials', a
 	await page.reload();
 	await expect(page.getByText('Not saved', { exact: true })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByText('Advanced settings', { exact: true }).click();
 	await page.getByLabel('Keep text chat history in this browser').check();
 	await page.getByRole('button', { name: 'Save settings' }).click();
 	await page.getByRole('link', { name: 'Back to assistant' }).click();
@@ -294,6 +338,7 @@ test('honors disabled history and clear history while preserving credentials', a
 	await expect(page.getByText('Saved message', { exact: true })).toBeVisible();
 	await expect(page.getByText('Not saved', { exact: true })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByText('Data and privacy', { exact: true }).click();
 	await page.getByRole('button', { name: 'Clear chat history' }).click();
 	await page.getByRole('button', { name: 'Delete history', exact: true }).click();
 	await expect(page.getByText('Chat history deleted from this browser.')).toBeVisible();
@@ -361,12 +406,12 @@ test('reset all clears the active in-memory session as well as storage', async (
 		page.getByLabel('Conversation').locator('option', { hasText: 'Before reset' })
 	).toHaveCount(1);
 	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByText('Data and privacy', { exact: true }).click();
 	await page.getByRole('button', { name: 'Reset all data' }).click();
 	await page.getByRole('button', { name: 'Delete everything' }).click();
 	await expect(page).toHaveURL(/\/onboarding$/);
 	await page.getByLabel(/Server address/).fill(MCP_URL);
-	await page.getByLabel('Authentication').selectOption('bearer');
-	await page.getByLabel('MCP bearer token').fill('e2e-mcp-token');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 	await expect(page.getByText('Before reset', { exact: true })).toHaveCount(0);
@@ -384,6 +429,7 @@ test('keeps chat and reset usable when browser locking is unavailable', async ({
 	await send(page, 'Still usable');
 	await expect(page.getByText('Still usable', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByText('Data and privacy', { exact: true }).click();
 	await page.getByRole('button', { name: 'Reset all data' }).click();
 	await page.getByRole('button', { name: 'Delete everything' }).click();
 	await expect(page).toHaveURL(/\/onboarding$/);

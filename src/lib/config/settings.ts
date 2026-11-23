@@ -60,7 +60,8 @@ export const settingsSchema = z.object({
 			url: z.string().trim().max(2048).default(''),
 			transport: z.enum(MCP_TRANSPORTS).default('streamable-http'),
 			displayName: z.string().trim().max(80).default(''),
-			authType: z.enum(MCP_AUTH_TYPES).default('none')
+			// The Home Assistant MCP integration requires a long-lived access token.
+			authType: z.enum(MCP_AUTH_TYPES).default('bearer')
 		})
 		.prefault({}),
 	homeAssistant: z.object({ baseUrl: optionalUrl.default('') }).prefault({}),
