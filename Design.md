@@ -146,7 +146,7 @@ Transitions support orientation and feedback: about 150 to 250 ms for state chan
 
 The orb is a sphere of connected points of light, cyan-white at its points and blue to violet at its rim, with a soft outer glow. It is the product's signature and stands for the assistant.
 
-- **Where it appears:** small in the assistant entry card on Home, medium as the docked center button of the navigation, small in the Assistant header, and large as the focus of the future voice mode.
+- **Where it appears:** small in the assistant entry card on Home, medium as the docked center button of the mobile navigation, prominent in the empty desktop Assistant, compact in the Assistant header during a conversation, and large as the focus of the future voice mode.
 - **One component:** a reusable `AssistantOrb` with size and state properties. Generate it in code, for example by distributing points on a sphere, projecting them, and connecting near neighbors, rendered as SVG or canvas. Do not trace or embed the reference image.
 - **Hierarchy:** at most one orb is animated per view. On Home, the navigation orb is the live one; the orb in the entry card is a static illustration.
 - **States:** idle is a slow rotation or gentle breathing. Voice states in M3 build on the same component. With reduced motion it is a static render.
@@ -195,6 +195,8 @@ Direct switches and one-tap actions outside the conversation, including the Ligh
 
 The conversation is the visual priority: glass message surfaces for the assistant, accent-tinted bubbles for the user, and a composer docked above the keyboard and the bottom safe area. The header shows a small orb, the conversation selector, and "New chat". Empty, waiting, streaming, interrupted, and error states have clear labels.
 
+On desktop, the empty conversation gives the orb a prominent central position in the Assistant panel, alongside the existing suggestions. Once a conversation contains messages, the orb remains visible in a compact header so that messages, tool activity, confirmations, and the composer have priority. Switching between these presentations must not create a new chat or interrupt the current one. The orb must not imply voice, listening, or activity that is not actually available.
+
 Markdown remains safely processed. Tables and long code blocks scroll horizontally within their own area and never displace the composer. Preserve saved conversations, session switching, cancellation, and warnings about unknown action outcomes.
 
 ### Tools and Confirmations
@@ -215,7 +217,7 @@ Settings groups connection, models and voice, confirmations, favorites, history,
 
 ### Tablet and Desktop
 
-Home and Assistant sit side by side, each scrolling independently, with the composer always visible; the existing viewport-bound behavior with `min-h-0` is preserved. Because Assistant is always visible, shortcuts act on it in place. Navigation moves from the bottom bar to a slim rail or header, and the orb moves into the Assistant header. Onboarding and Settings use a limited reading width.
+Home and Assistant sit side by side, each scrolling independently, with the composer always visible; the existing viewport-bound behavior with `min-h-0` is preserved. Because Assistant is always visible, shortcuts act on it in place. Navigation moves from the bottom bar to a slim rail or header. The Assistant's empty-state orb is a central visual focus; during a conversation it becomes a compact header presence. Onboarding and Settings use a limited reading width.
 
 ## Reference to Product Mapping
 
@@ -240,7 +242,7 @@ Voice should feel **present and focused**, as if the assistant is attentive in t
 
 ### Layout
 
-- Entering voice mode, the orb grows from its navigation position to the center of the screen while cards and the bar fade out.
+- Entering voice mode, the orb grows from its current navigation or Assistant position to the center of the screen while surrounding panels and navigation fade out.
 - Top: connection and microphone status and a way to leave.
 - Center: the large orb on the calm background. It never dominates a warning.
 - Bottom: microphone control, text fallback, and relevant actions. Tool activity and confirmations appear on a solid, clearly bounded surface.

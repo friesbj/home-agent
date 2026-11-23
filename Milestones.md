@@ -79,6 +79,7 @@ Design direction: see [Design.md](./Design.md) for the living, project-wide "amb
 - [ ] Redesign Home as a glanceable dashboard: greeting with optional display name, data-derived status sentence, assistant entry card, read-only light and climate summaries, and collapsible rooms with refresh and freshness states; retain favorites and existing entity behavior.
 - [ ] Add assistant shortcuts for scenes: a tile submits a visible request to the conversation and goes through the existing server-side confirmation; no new action endpoint.
 - [ ] Redesign the Assistant view: text chat, session selection, Markdown, tool status, and approval presentation; keep input accessible and preserve the existing server-side approval flow.
+  - [ ] Give desktop Assistant a prominent central orb when the conversation is empty and a compact header orb when it contains messages; preserve chat state, visible composer, and confirmation priority.
 - [ ] Apply the same design system to onboarding and Settings, including the optional display name, keeping credential notices, validation, connection testing, confirmation preferences, and reset safeguards visible and functional.
 - [ ] Specify the future voice screen and its listening, speaking, thinking, tool-use, confirmation, and error states; implement actual voice interaction only in M3.
 - [ ] Validate against the reference and across mobile, tablet, and desktop layouts: keyboard and screen-reader access, reduced motion, zoom, touch targets, and existing chat, settings, history, and approval workflows using mocked services.
