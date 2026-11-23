@@ -4,6 +4,13 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T15:28:08+01:00
+
+- **Changed:** `.github/skills/git-branching/SKILL.md`: creating or switching a branch now always requires the user's confirmation via `ask_user` (recommended option as default, alternatives, handling of uncommitted changes). Staying on the current branch for the same topic needs no question. Reusing a merged branch is allowed when the user chooses it (fast-forward it to `main` first).
+- **Changed:** `AGENTS.md` instruction updated accordingly.
+- **Branch:** `docs/git-branching-skill` (reused at the user's choice, fast-forwarded to `main`).
+- **No implementation:** Documentation/process-only change.
+
 ### 2026-11-23T15:24:36+01:00
 
 - **Added:** `.github/skills/git-branching/SKILL.md`

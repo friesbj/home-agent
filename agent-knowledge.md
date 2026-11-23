@@ -4,6 +4,10 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T15:28:08+01:00
+
+- **Branch confirmation (user requirement):** agents must ask the user (via `ask_user`) before every branch creation or switch, proposing a recommended branch as default. Only staying on the current branch for a continuing topic proceeds without asking.
+
 ### 2026-11-23T15:24:36+01:00
 
 - **Branching workflow (user requirement):** new features, fixes, and docs work happen on separate branches. Before every file-changing request, apply `.github/skills/git-branching`: stay on the current branch for the same topic, otherwise branch from up-to-date `main` as `<type>/<short-topic>` (types from Conventional Commits, milestone ID when applicable). Uncommitted work is never carried onto an unrelated branch.
