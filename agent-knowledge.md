@@ -2,6 +2,14 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-23
+
+### 2026-11-23T15:24:36+01:00
+
+- **Branching workflow (user requirement):** new features, fixes, and docs work happen on separate branches. Before every file-changing request, apply `.github/skills/git-branching`: stay on the current branch for the same topic, otherwise branch from up-to-date `main` as `<type>/<short-topic>` (types from Conventional Commits, milestone ID when applicable). Uncommitted work is never carried onto an unrelated branch.
+- **Merging:** agents do not merge, push, or delete branches unaided; when a topic is complete they offer `git merge --no-ff` (revertable with `git revert -m 1`) or a pushed branch/pull request.
+- **Remote:** `origin` is `https://github.com/friesbj/home-agent.git`; `main` tracks `origin/main`.
+
 ## 2026-11-22
 
 ### 2026-11-22T16:10:00+01:00
