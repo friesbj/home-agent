@@ -4,6 +4,12 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-23
 
+### 2026-11-23T17:38:19+01:00
+
+- **M2:** Added safe assistant Markdown rendering in `MarkdownMessage.svelte` and `ChatPanel.svelte`, with tables, fenced code blocks, scrollable wide content, escaped raw HTML, sanitized links, and no automatic image loading. Saved conversations render the same way; user messages remain plain text.
+- **Changed:** Added Marked and DOMPurify dependencies, documented rendering in `README.md`, and added focused component and chat-history browser tests.
+- **Validation:** Three component tests, nine chat-history Playwright tests, `npm run check`, targeted ESLint, and source-file Prettier checks passed. The production build emitted existing Zod/Rollup annotation warnings.
+
 ### 2026-11-23T17:19:22+01:00
 
 - **M2:** Implemented selectable, resumable text-chat sessions in `chat-history.ts`, `chat-session.svelte.ts`, and `ChatPanel.svelte`; reloads and new tabs start fresh while Settings navigation retains the active chat. The legacy single-chat key is deleted without altering configuration or credentials.

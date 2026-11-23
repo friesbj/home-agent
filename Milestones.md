@@ -66,6 +66,7 @@ This file tracks project milestones and agent-owned implementation todos.
 - [x] On session switch, cancel ongoing responses and pending confirmations; isolate late results and warn when the outcome of an already-started action is unknown.
 - [x] Preserve history opt-out, explicit history deletion, error reporting, and cross-tab safety for session-based storage.
 - [x] Add unit and browser tests for legacy history deletion, session lifecycle and selection, cancellation, privacy settings, and concurrent tabs; update user documentation.
+- [x] Render assistant Markdown, tables, and code blocks safely in the text chat.
 
 ## M3 - GPT-Live Full-Duplex MVP
 

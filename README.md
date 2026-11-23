@@ -48,6 +48,8 @@ The private test MVP may store API and MCP credentials in Browser Storage. Brows
 
 When text chat history is enabled (the default), text messages are stored unencrypted in this browser as separate conversations. A new tab, browser restart, or reload starts a new conversation; use the Conversation selector to continue an earlier one. Returning from Settings keeps the current conversation. The old single-conversation history is deleted on transition; settings and credentials are unaffected. Do not enter credentials in chat. Switching conversations cancels the response and pending approvals, but an action already started may have an unknown outcome: check Home Assistant before retrying. Tool inputs, outputs, and approvals are not stored or restored. Disabling history stops loading and saving it but keeps existing history until it is explicitly cleared in Settings or all data is reset. Voice transcript retention is a separate, future feature.
 
+Assistant messages display Markdown, including tables and code blocks; your own messages remain plain text. Raw HTML is shown as text, unsafe links are removed, and Markdown images are shown as alt text rather than loaded.
+
 The private MVP must not be operated as a broadly public service. Use VPN, password protection, or network restrictions. Mutating actions are confirmed and restricted to the allowed domains.
 
 ## Security
