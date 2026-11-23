@@ -21,6 +21,58 @@ async function send(page: Page, text: string) {
 	await page.getByRole('button', { name: 'Send' }).click();
 }
 
+test('renders assistant Markdown and restored history without formatting user messages', async ({
+	page
+}) => {
+	const longCode = 'x'.repeat(300);
+	const wideHeader = `| ${Array.from({ length: 20 }, (_, i) => `Column ${i}`).join(' | ')} |`;
+	const wideDivider = `| ${Array.from({ length: 20 }, () => '---').join(' | ')} |`;
+	await page.route('**/api/chat', (route) =>
+		route.fulfill({
+			headers: { 'content-type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+			body: stream([
+				{ type: 'start', messageId: 'markdown-reply' },
+				{ type: 'text-start', id: 'text' },
+				{
+					type: 'text-delta',
+					id: 'text',
+					delta: `**Ready**\n\n| Device | State |\n| --- | --- |\n| Light | On |\n\n${wideHeader}\n${wideDivider}\n\n\`\`\`text\n${longCode}\n\`\`\``
+				},
+				{ type: 'text-end', id: 'text' },
+				{ type: 'finish' }
+			])
+		})
+	);
+	await setup(page);
+	await send(page, 'Show **status**');
+	const assistant = page.getByRole('article', { name: 'Assistant' });
+	await expect(assistant.locator('strong')).toHaveText('Ready');
+	await expect(assistant.locator('table td')).toHaveText(['Light', 'On']);
+	await expect(assistant.locator('pre code')).toHaveText(`${longCode}\n`);
+	await expect(page.getByRole('article', { name: 'You' })).toContainText('Show **status**');
+	await expect(page.getByRole('article', { name: 'You' }).locator('strong')).toHaveCount(0);
+	expect(
+		await assistant.locator('pre').evaluate((element) => element.scrollWidth > element.clientWidth)
+	).toBe(true);
+	expect(
+		await assistant
+			.locator('table')
+			.nth(1)
+			.evaluate((table) => {
+				const wrapper = table.parentElement;
+				return !!wrapper && wrapper.scrollWidth > wrapper.clientWidth;
+			})
+	).toBe(true);
+	await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport();
+
+	await page.reload();
+	const saved = page.getByLabel('Conversation').locator('option', { hasText: 'Show **status**' });
+	await page.getByLabel('Conversation').selectOption((await saved.getAttribute('value')) as string);
+	await expect(assistant.locator('strong')).toHaveText('Ready');
+	await expect(assistant.locator('table td')).toHaveText(['Light', 'On']);
+	await expect(assistant.locator('pre code')).toHaveText(`${longCode}\n`);
+});
+
 test('starts new sessions on reload and resumes selected context, preserving it through Settings', async ({
 	page
 }) => {

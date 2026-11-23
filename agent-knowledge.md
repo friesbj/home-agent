@@ -4,6 +4,10 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T17:38:19+01:00
+
+- **M2 assistant Markdown:** assistant text, including restored chat history, is rendered with Marked and sanitized with DOMPurify before insertion. Raw HTML is escaped and Markdown images are reduced to alt text to avoid automatic remote requests; user messages remain plain text.
+
 ### 2026-11-23T17:19:22+01:00
 
 - **M2 session history implemented:** each saved chat has its own versioned localStorage key; a document-scoped manager preserves the active chat across client-side navigation but starts a fresh chat after reload or in a new tab. Legacy v1 single-chat history is deleted, not migrated.

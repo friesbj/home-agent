@@ -4,6 +4,7 @@
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { textSnapshot } from '$lib/home/chat-history';
 	import { getChatSessionManager } from '$lib/home/chat-session.svelte';
+	import MarkdownMessage from './MarkdownMessage.svelte';
 	import ToolCallCard from './ToolCallCard.svelte';
 
 	const suggestions = [
@@ -171,13 +172,13 @@
 			>
 				{#each message.parts as part, partIndex (partIndex)}
 					{#if part.type === 'text' && part.text}
-						<p
-							class="rounded-lg px-3 py-2 whitespace-pre-wrap {message.role === 'user'
-								? 'bg-stone-900 text-white'
-								: 'bg-stone-100 text-stone-900'}"
-						>
-							{part.text}
-						</p>
+						{#if message.role === 'user'}
+							<p class="rounded-lg bg-stone-900 px-3 py-2 whitespace-pre-wrap text-white">
+								{part.text}
+							</p>
+						{:else}
+							<MarkdownMessage text={part.text} />
+						{/if}
 					{:else if isToolUIPart(part)}
 						<ToolCallCard {part} toolName={getToolOrDynamicToolName(part)} onrespond={respond} />
 					{/if}
