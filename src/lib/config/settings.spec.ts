@@ -10,6 +10,7 @@ import {
 	requiresConfirmation,
 	saveSecrets,
 	saveSettings,
+	settingsSchema,
 	type ConfirmationPolicy
 } from './settings';
 
@@ -47,6 +48,22 @@ describe('browser settings storage', () => {
 
 	it('defaults to confirming every mutation', () => {
 		expect(loadConfirmationPolicy(memoryStorage()).mode).toBe('all');
+	});
+
+	it('keeps settings stored before the profile existed and validates the display name', () => {
+		const stored = {
+			version: 1,
+			data: { onboardingCompleted: true, mcp: { url: 'https://a.b/mcp' } }
+		};
+		const loaded = loadSettings(memoryStorage({ [STORAGE_KEYS.settings]: JSON.stringify(stored) }));
+		expect(loaded.mcp.url).toBe('https://a.b/mcp');
+		expect(loaded.profile.displayName).toBe('');
+		expect(settingsSchema.parse({ profile: { displayName: '  Alex ' } }).profile.displayName).toBe(
+			'Alex'
+		);
+		expect(settingsSchema.safeParse({ profile: { displayName: 'x'.repeat(41) } }).success).toBe(
+			false
+		);
 	});
 
 	it('drops empty secrets and removes the key when none remain', () => {

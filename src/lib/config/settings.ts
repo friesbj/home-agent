@@ -52,6 +52,9 @@ const domainList = z.array(z.string().trim().min(1).max(64)).max(64);
 
 export const settingsSchema = z.object({
 	onboardingCompleted: z.boolean().default(false),
+	profile: z
+		.object({ displayName: z.string().trim().max(40, 'Use at most 40 characters.').default('') })
+		.prefault({}),
 	mcp: z
 		.object({
 			url: z.string().trim().max(2048).default(''),
