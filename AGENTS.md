@@ -448,6 +448,7 @@ The following decisions have been made:
 
 For later implementation sessions:
 
+- Write all project context in the repository in English.
 - Read this file before making code changes.
 - Read `agent-knowledge.md`, `Milestones.md`, and recent `agent-changelog.md` entries before planning or implementation.
 - Use the repository skills under `.github/skills/agent-knowledge`, `.github/skills/agent-changelog`, `.github/skills/milestones`, `.github/skills/git-branching`, and `.github/skills/commit-work`.

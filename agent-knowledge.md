@@ -4,6 +4,10 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-23
 
+### 2026-11-23T22:02:59+01:00
+
+- **Documentation language (user requirement):** write all repository project context in English, including the evolving design documentation.
+
 ### 2026-11-23T17:38:19+01:00
 
 - **M2 assistant Markdown:** assistant text, including restored chat history, is rendered with Marked and sanitized with DOMPurify before insertion. Raw HTML is escaped and Markdown images are reduced to alt text to avoid automatic remote requests; user messages remain plain text.
