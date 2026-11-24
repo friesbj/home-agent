@@ -4,6 +4,10 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T11:00:00+00:00
+
+- **Scrollbars (user request):** `layout.css` defines slim 6 px scrollbars with a transparent track and a translucent violet thumb for all scroll areas (page, Home column, chat list, code and tables). Chromium and Safari use `::-webkit-scrollbar` (without arrow buttons); Firefox uses `scrollbar-width: thin` and `scrollbar-color` via `@supports not selector(::-webkit-scrollbar)`. `Design.md` documents it.
+
 ### 2026-11-24T10:30:00+00:00
 
 - **M2a mobile polish (user request):** On mobile, the Assistant view uses the full screen width without card border, and the page header becomes a transparent Home icon overlay. The composer in `ChatPanel.svelte` is a single field with the round Send/Stop button inside it, growing with its text up to about 160 px (all breakpoints). The mobile navigation bar is icon-only (accessible names unchanged), the orb keeps its size. `Design.md` documents the composer.
