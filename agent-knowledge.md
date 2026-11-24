@@ -4,6 +4,10 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-24
 
+### 2026-11-24T20:27:06+01:00
+
+- **M2a is complete (user decision):** the design milestone, including device acceptance, is accepted. Next planned work is M3 (GPT-Live), which starts with the presentational voice stage and its state gallery as specified in `Design.md`; the open product decisions in "Open Design Questions" (transcript destination, spoken approval, hidden tab, voice samples) should be answered before or early in M3. The M2a branch `feat/m2a-mobile-design` is not yet merged into `main`.
+
 ### 2026-11-24T18:27:46+01:00
 
 - **Favicon assets:** `static/favicon.ico` and `static/apple-touch-icon.png` are derived from `static/favicon.svg`; there is no generator script in the repository. Re-render them (for example with Playwright, transparent background for the ICO, full-bleed `#0b142d` for the touch icon) whenever the SVG changes.

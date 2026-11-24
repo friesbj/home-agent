@@ -4,6 +4,10 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T20:27:06+01:00
+
+- **M2a closed:** the user accepted the device acceptance (real iOS and Android browsers, on-screen keyboard, safe areas, screen reader, smoothness) on 2026-11-24, so the last open M2a todo is done. `Milestones.md` marks it `[x]` and notes that the agent did not run this check; `Design.md` no longer says the design is unimplemented or that voice specification and validation are open. Documentation only; no tests run.
+
 ### 2026-11-24T18:27:46+01:00
 
 - **Favicon (user request):** replaced the default Svelte logo with the orb. `static/favicon.svg` is the source (simplified for 16 px: three outlines, six nodes, brighter sphere); `static/favicon.ico` (32 px PNG in an ICO container) and `static/apple-touch-icon.png` (180 px on `#0b142d`) were rendered from it with Playwright. `src/app.html` declares the icons and `theme-color`; the unused import in `+layout.svelte` and `src/lib/assets/favicon.svg` are removed. New E2E test in `e2e/onboarding.test.ts` checks that the icons are declared and served. `Design.md` documents it.
