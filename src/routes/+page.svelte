@@ -61,7 +61,7 @@
 
 		<main
 			class={[
-				'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:grid-rows-1 lg:px-0 lg:pb-0',
+				'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:grid-rows-1 lg:px-0 lg:pb-0',
 				mobileView === 'assistant' ? 'px-0 pt-[env(safe-area-inset-top)]' : 'px-0'
 			]}
 		>
@@ -80,7 +80,7 @@
 				class={[
 					'min-h-0 lg:block lg:h-auto',
 					mobileView === 'assistant'
-						? 'h-[calc(100dvh-7rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'
+						? 'h-[calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'
 						: 'hidden h-[calc(100dvh-12rem-env(safe-area-inset-bottom))]'
 				]}
 				aria-label="Assistant"
@@ -91,20 +91,21 @@
 	</div>
 	<nav
 		aria-label="Main navigation"
-		class="fixed inset-x-0 bottom-0 z-20 rounded-t-[28px] border-t surface-bar px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+		class="fixed inset-x-0 bottom-0 z-20 rounded-t-[24px] border-t surface-bar px-5 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
 	>
-		<div class="mx-auto grid max-w-md grid-cols-3 items-end">
+		<div class="mx-auto grid max-w-xs grid-cols-3 items-end">
 			<button
 				type="button"
-				class="flex min-h-16 flex-col items-center justify-center gap-1 text-sm font-semibold text-ink-muted aria-pressed:text-ink"
+				class="flex min-h-12 items-center justify-center text-ink-muted aria-pressed:text-ink"
+				aria-label="Home"
 				aria-pressed={mobileView === 'home'}
 				onclick={() => openMobileView('home')}
 			>
-				<House size={22} aria-hidden="true" /> Home
+				<House size={24} aria-hidden="true" />
 			</button>
 			<button
 				type="button"
-				class="-mt-8 flex min-h-16 flex-col items-center gap-1 text-sm font-semibold text-ink-muted aria-pressed:text-ink"
+				class="-mt-6 flex items-center justify-center text-ink-muted aria-pressed:text-ink"
 				aria-label="Open text assistant"
 				aria-pressed={mobileView === 'assistant'}
 				onclick={() => openMobileView('assistant')}
@@ -116,13 +117,13 @@
 						aria-hidden="true"
 					/></span
 				>
-				Assistant
 			</button>
 			<a
-				class="flex min-h-16 flex-col items-center justify-center gap-1 text-sm font-semibold text-ink-muted"
+				class="flex min-h-12 items-center justify-center text-ink-muted"
+				aria-label="Settings"
 				href={resolve('/settings')}
 			>
-				<Settings size={22} aria-hidden="true" /> Settings
+				<Settings size={24} aria-hidden="true" />
 			</a>
 		</div>
 	</nav>
