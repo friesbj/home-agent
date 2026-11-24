@@ -2,6 +2,14 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-25
+
+### 2026-11-25T00:15:00+01:00
+
+- **M3 voice stage (`src/lib/components/VoiceStage.svelte`, `src/routes/+page.svelte`):** captions are hidden by default. The "Captions" heading is gone; a small "Show captions" / "Hide captions" text control toggles them during a conversation, and the page remembers the choice while it is open.
+- **Docs and tests:** `Design.md` records the decision; the component test and `e2e/voice.test.ts` expect captions only after "Show captions".
+- **Validation:** `npm run check`, `npx vitest run` (165/165), `npx eslint .`, and `npm run test:e2e` (40/40) pass; screenshots of the stage with captions hidden and shown were reviewed.
+
 ## 2026-11-24
 
 ### 2026-11-24T23:55:00+01:00

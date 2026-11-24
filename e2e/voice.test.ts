@@ -206,7 +206,11 @@ test('voice runs a read and a confirmed change through the server and joins the 
 		end_ms: 2000,
 		delta: 'Turn on the kitchen light.'
 	});
-	await expect(stage.getByText('Turn on the kitchen light.')).toBeVisible();
+	// Captions are off until the user asks for them.
+	const caption = stage.getByText('Turn on the kitchen light.');
+	await expect(caption).toBeHidden();
+	await stage.getByRole('button', { name: 'Show captions' }).click();
+	await expect(caption).toBeVisible();
 
 	await emit(page, { type: 'session.delegation.created' });
 	await expect(stage.getByRole('status')).toHaveText('Working on it…');

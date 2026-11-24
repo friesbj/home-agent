@@ -2,6 +2,12 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-25
+
+### 2026-11-25T00:15:00+01:00
+
+- **Voice captions (user decision):** captions are hidden by default and have no heading; a quiet "Show captions" control reveals them. `VoiceStage` exposes `captionsVisible` as a bindable prop and the page keeps it, so the choice lasts while the page is open and resets on reload. It is not a stored setting; add one only if users ask to keep captions on permanently, since captions are the text equivalent for users who cannot hear the assistant.
+
 ## 2026-11-24
 
 ### 2026-11-24T23:55:00+01:00

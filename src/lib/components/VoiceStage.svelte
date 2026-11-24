@@ -1,5 +1,15 @@
 <script lang="ts">
-	import { ArrowLeft, Eye, Mic, MicOff, PenLine, PhoneOff, TriangleAlert } from '@lucide/svelte';
+	import {
+		ArrowLeft,
+		Captions,
+		CaptionsOff,
+		Eye,
+		Mic,
+		MicOff,
+		PenLine,
+		PhoneOff,
+		TriangleAlert
+	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import AssistantOrb from './AssistantOrb.svelte';
 
@@ -43,6 +53,8 @@
 		state: VoiceStageState;
 		/** The configured voice, shown on the first-use screen with a link to Settings. */
 		voiceName?: string;
+		/** Captions are off by default; bind this to keep the user's choice between conversations. */
+		captionsVisible?: boolean;
 		onstart?: () => void;
 		onpermission?: () => void;
 		ontogglemicrophone?: () => void;
@@ -56,6 +68,7 @@
 	let {
 		state: stageState,
 		voiceName,
+		captionsVisible = $bindable(false),
 		onstart,
 		onpermission,
 		ontogglemicrophone,
@@ -65,7 +78,6 @@
 		ondeny,
 		onretry
 	}: Props = $props();
-	let captionsVisible = $state(true);
 
 	const microphoneOn = $derived(
 		(stageState.kind === 'connecting' && stageState.microphoneOn) ||
@@ -257,18 +269,20 @@
 					{/if}
 				</div>
 			{/if}
-		{:else}
-			<div class="flex items-center justify-between gap-3">
-				<h3 class="text-sm font-semibold">Captions</h3>
-				<button
-					type="button"
-					class="min-h-11 rounded-control px-3 text-sm text-ink-muted hover:bg-white/10 hover:text-ink"
-					onclick={() => (captionsVisible = !captionsVisible)}
-					aria-expanded={captionsVisible}
-				>
-					{captionsVisible ? 'Hide captions' : 'Show captions'}
-				</button>
-			</div>
+		{:else if stageState.kind === 'connecting' || stageState.kind === 'connected'}
+			<!-- Voice comes first: captions are an option, off until the user asks for them. -->
+			<button
+				type="button"
+				class="mx-auto flex min-h-11 items-center gap-2 rounded-control px-3 text-sm text-ink-muted hover:text-ink"
+				onclick={() => (captionsVisible = !captionsVisible)}
+				aria-expanded={captionsVisible}
+			>
+				{#if captionsVisible}
+					<CaptionsOff size={16} aria-hidden="true" /> Hide captions
+				{:else}
+					<Captions size={16} aria-hidden="true" /> Show captions
+				{/if}
+			</button>
 			{#if captionsVisible}
 				<div
 					class="space-y-2 rounded-tile bg-white/5 p-3 text-sm"

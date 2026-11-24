@@ -157,7 +157,7 @@ describe('VoiceStage', () => {
 		await expect.element(page.getByRole('button', { name: 'Allow microphone' })).toBeEnabled();
 		// Captions belong to a conversation, not to the setup.
 		await expect
-			.element(page.getByRole('button', { name: 'Hide captions' }))
+			.element(page.getByRole('button', { name: 'Show captions' }))
 			.not.toBeInTheDocument();
 
 		await screen.rerender({ state: { kind: 'needs-microphone', blocked: true } });
@@ -214,7 +214,7 @@ describe('VoiceStage', () => {
 		await expect.element(page.getByRole('button', { name: 'End', exact: true })).toBeDisabled();
 	});
 
-	it('hides and restores captions without announcing their text', async () => {
+	it('keeps captions out of the way until they are asked for, without announcing their text', async () => {
 		const state: VoiceStageState = {
 			kind: 'connected',
 			microphoneOn: true,
@@ -227,14 +227,16 @@ describe('VoiceStage', () => {
 		render(VoiceStage, { state });
 
 		const caption = page.getByText('What is the temperature?');
+		await expect.element(caption).not.toBeInTheDocument();
+		await expect.element(page.getByRole('heading', { name: 'Captions' })).not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Show captions' }).click();
 		await expect.element(caption).toBeVisible();
 		await expect
 			.element(page.getByRole('group', { name: 'Captions' }))
 			.toHaveAttribute('aria-live', 'off');
 		await page.getByRole('button', { name: 'Hide captions' }).click();
 		await expect.element(caption).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Show captions' }).click();
-		await expect.element(caption).toBeVisible();
 	});
 
 	it('keeps the microphone state distinct from speaking', async () => {

@@ -18,6 +18,8 @@
 	let voiceOverlay = $state<HTMLElement>();
 	let liveAudio = $state<HTMLAudioElement>();
 	let voiceState = $state<VoiceStageState>({ kind: 'ready' });
+	// The choice lasts while this page is open; every visit starts without captions.
+	let captionsVisible = $state(false);
 	let voiceOpenerId = 'start-voice';
 	const liveSession = new LiveSessionController({
 		onState: (state) => (voiceState = state),
@@ -212,6 +214,7 @@
 			<VoiceStage
 				state={voiceState}
 				voiceName={appConfig.settings.models.voice}
+				bind:captionsVisible
 				onstart={startLiveConversation}
 				onpermission={startLiveConversation}
 				ontogglemicrophone={() => liveSession.toggleMicrophone()}

@@ -287,7 +287,7 @@ Mobile is full screen, respects the top and bottom safe areas, and hides the nav
 1. **Header:** the eyebrow "Live conversation", the title "Home Agent", and a microphone chip that always states whether the microphone is on or off.
 2. **Orb:** the focus. About 60 % of the width on mobile, between 180 and 320 px; on viewports shorter than 600 px it shrinks to 140 px. While a confirmation is open it recedes to about 96 px.
 3. **Status:** one word in 19 to 20 px semibold in the primary text color, in a polite live region, with one line of secondary text below it. The color is the same in every state, so the state is always carried by the word.
-4. **Captions:** the last heard and last spoken sentences, up to three lines on mobile and more on desktop, with a Hide captions control. Captions are not announced by screen readers, to avoid speaking over the assistant.
+4. **Captions:** hidden by default, so that the stage is about speaking. A quiet "Show captions" text control, without a heading, reveals the last heard and last spoken sentences below it, up to three lines on mobile and more on desktop; "Hide captions" removes them again. Captions are not announced by screen readers, to avoid speaking over the assistant.
 5. **Activity strip:** shown during delegation and tool use, in the vocabulary of the tool card: "Read" or "Change", the target, and progress.
 6. **Confirmation card:** on the solid surface, between the orb and the controls, only while a confirmation is pending.
 7. **Controls:** in the lower, thumb-reachable area, two equal-width buttons with icon and label, "Turn microphone off/on" and "End", each at least 44 px high. "Back to text" sits below them as a text button.
@@ -352,7 +352,7 @@ The assistant announces that a confirmation is waiting. The decision is made wit
 
 ### Captions and Transcripts
 
-- Captions show the latest turn of each speaker and can be hidden. They are the text equivalent of the conversation. The provider sends transcript fragments with timestamps but without turn boundaries; fragments of one speaker that overlap or follow within 1.5 seconds form one turn.
+- Captions show the latest turn of each speaker. They are off until the user turns them on, and the choice lasts while the page is open. They are the text equivalent of the conversation, so the control that shows them is always present during a conversation. The provider sends transcript fragments with timestamps but without turn boundaries; fragments of one speaker that overlap or follow within 1.5 seconds form one turn.
 - Nothing is stored unless the user enabled transcript retention in Settings. Audio is never stored.
 - When transcript retention is on, voice turns are added as text messages to the current chat session when the voice session ends, so they appear in the Assistant and are removed by the existing "Clear chat history". When it is off, or text history is off, captions vanish with the stage.
 
@@ -437,6 +437,7 @@ These questions were open in the plan and were decided during M2a implementation
 - **Touch-target exception:** the composer's Send and Stop buttons stay at 40 px by the user's request. They sit inside a 52 px field with 6 px of space around them and exceed the WCAG 2.2 AA minimum of 24 px.
 - **M3 transcript retention (user decision):** when enabled, voice turns join the active text-chat session; when disabled, they are transient and disappear with the voice stage.
 - **M3 background sessions (user decision):** end a running voice session after 60 seconds with the tab hidden.
+- **M3 captions (user decision, 2026-11-25):** captions are hidden by default and have no prominent heading; the stage is about speaking, and a user who wants the text turns it on.
 - **M3 spoken approval (user decision, revised 2026-11-24):** deferred. Confirmations in voice are answered with the on-screen controls; a user who wants a more fluid conversation can relax the confirmation policy in Settings. If it is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve.
 - **M3 tool bridge (user decision):** expose application function tools through Responses delegation and route execution through the server MCP gateway, without sending MCP credentials to OpenAI's hosted MCP tool runner.
 - **Voice sample previews (user decision):** defer sample playback beyond M3 to avoid extra provider usage.
