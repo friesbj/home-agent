@@ -131,6 +131,7 @@ Secondary information remains readable and is not pushed into the background sol
 - Radii: about 12 px for inputs and icon wells, 16 px for tiles and small cards, 20 to 24 px for wide cards and panels, 28 px for the top corners of the navigation bar, and fully rounded switches and pills.
 - An **icon well** is a rounded-square, tinted container of at least 40 px that holds a domain icon, as on the reference Lights and Climate cards.
 - Interactive elements are at least 44 by 44 CSS px, even where the reference draws them smaller.
+- Scrollbars are slim (6 px, `scrollbar-width: thin`), with a transparent track and a translucent violet thumb (`accent-ink` at 35 %, 55 % on hover), defined globally in `layout.css`.
 
 ### Iconography
 

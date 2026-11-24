@@ -45,6 +45,37 @@
 	color-scheme: dark;
 }
 
+/* Slim scrollbars that blend into the dark surfaces. */
+/* Chromium ignores the ::-webkit-scrollbar rules below when these standard properties are set. */
+@supports not selector(::-webkit-scrollbar) {
+	:root,
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: rgb(179 166 255 / 0.35) transparent;
+	}
+}
+
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+::-webkit-scrollbar-button {
+	display: none;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	border-radius: 9999px;
+	background: rgb(179 166 255 / 0.35);
+	&:hover {
+		background: rgb(179 166 255 / 0.55);
+	}
+}
+
 .ambient-shell :is(button, a, summary, input, textarea, select):focus-visible {
 	outline: 3px solid var(--color-accent-ink);
 	outline-offset: 3px;
