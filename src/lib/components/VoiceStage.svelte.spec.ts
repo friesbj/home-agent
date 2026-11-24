@@ -11,6 +11,16 @@ const states: { name: string; state: VoiceStageState; status: string }[] = [
 		status: 'Microphone access needed'
 	},
 	{
+		name: 'blocked microphone',
+		state: { kind: 'needs-microphone', blocked: true },
+		status: 'Microphone blocked'
+	},
+	{
+		name: 'failed start',
+		state: { kind: 'error', title: 'Could not connect', message: 'No microphone was found.' },
+		status: 'Could not connect'
+	},
+	{
 		name: 'connecting',
 		state: { kind: 'connecting', microphoneOn: true },
 		status: 'Connecting…'
@@ -130,6 +140,78 @@ describe('VoiceStage', () => {
 		await expect.element(page.getByText('Turn on the kitchen lights?')).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Approve' })).toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Deny' })).toBeDisabled();
+	});
+
+	it('explains voice on first use and offers a retry when the microphone is blocked', async () => {
+		const screen = render(VoiceStage, {
+			state: { kind: 'needs-microphone' },
+			voiceName: 'marin',
+			onpermission: () => {}
+		});
+
+		await expect.element(page.getByText(/sent through this application's server/)).toBeVisible();
+		await expect.element(page.getByText('Voice: marin')).toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Change in Settings' }))
+			.toHaveAttribute('href', '/settings');
+		await expect.element(page.getByRole('button', { name: 'Allow microphone' })).toBeEnabled();
+		// Captions belong to a conversation, not to the setup.
+		await expect
+			.element(page.getByRole('button', { name: 'Hide captions' }))
+			.not.toBeInTheDocument();
+
+		await screen.rerender({ state: { kind: 'needs-microphone', blocked: true } });
+		await expect.element(page.getByText(/Allow the microphone for this site/)).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+		await expect.element(page.getByText('Voice: marin')).not.toBeInTheDocument();
+	});
+
+	it('moves focus to the confirmation card and reports the decision', async () => {
+		let decision = '';
+		render(VoiceStage, {
+			state: {
+				kind: 'connected',
+				microphoneOn: true,
+				listening: true,
+				speaking: false,
+				thinking: true,
+				confirmation: {
+					summary: 'Turn on / activate: name "Kitchen Light" (light)',
+					targets: ['Kitchen Light']
+				}
+			},
+			onapprove: () => (decision = 'approved'),
+			ondeny: () => (decision = 'denied')
+		});
+
+		// The card, not a button, is focused, so a stray Enter or Space cannot approve.
+		await expect
+			.element(page.getByRole('region', { name: 'Waiting for your confirmation' }))
+			.toHaveFocus();
+		await expect.element(page.getByText('Change · Kitchen Light', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Deny' }).click();
+		expect(decision).toBe('denied');
+	});
+
+	it('shows a closing session with disabled controls and a non-fatal notice', async () => {
+		render(VoiceStage, {
+			state: {
+				kind: 'connected',
+				microphoneOn: false,
+				listening: false,
+				speaking: false,
+				thinking: false,
+				closing: true,
+				notice: 'The assistant reported a problem.'
+			},
+			ontogglemicrophone: () => {},
+			onend: () => {}
+		});
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('Ending…');
+		await expect.element(page.getByText('The assistant reported a problem.')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Turn microphone on' })).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: 'End', exact: true })).toBeDisabled();
 	});
 
 	it('hides and restores captions without announcing their text', async () => {

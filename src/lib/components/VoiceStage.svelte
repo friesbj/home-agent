@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { ArrowLeft, Eye, Mic, MicOff, PenLine, PhoneOff } from '@lucide/svelte';
+	import { ArrowLeft, Eye, Mic, MicOff, PenLine, PhoneOff, TriangleAlert } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 	import AssistantOrb from './AssistantOrb.svelte';
 
 	export type VoiceActivity = {
@@ -11,12 +12,14 @@
 	export type VoiceConfirmation = {
 		summary: string;
 		targets: string[];
-		affectedCount: number;
+		/** Known only when the application resolved the targets; omitted otherwise. */
+		affectedCount?: number;
 	};
 
 	export type VoiceStageState =
 		| { kind: 'ready' }
-		| { kind: 'needs-microphone' }
+		/** Permission was never granted (first use) or, when `blocked`, was refused for this site. */
+		| { kind: 'needs-microphone'; blocked?: boolean }
 		| { kind: 'connecting'; microphoneOn: boolean }
 		| {
 				kind: 'connected';
@@ -28,11 +31,18 @@
 				spokenText?: string;
 				activity?: VoiceActivity;
 				confirmation?: VoiceConfirmation;
+				/** A problem that did not end the session. */
+				notice?: string;
+				/** The session is shutting down; the microphone is already off. */
+				closing?: boolean;
 		  }
-		| { kind: 'error'; message: string };
+		/** `title` names the failure when it is not a lost connection. */
+		| { kind: 'error'; message: string; title?: string };
 
 	interface Props {
 		state: VoiceStageState;
+		/** The configured voice, shown on the first-use screen with a link to Settings. */
+		voiceName?: string;
 		onstart?: () => void;
 		onpermission?: () => void;
 		ontogglemicrophone?: () => void;
@@ -45,6 +55,7 @@
 
 	let {
 		state: stageState,
+		voiceName,
 		onstart,
 		onpermission,
 		ontogglemicrophone,
@@ -63,11 +74,18 @@
 
 	const presentation = $derived.by(() => {
 		if (stageState.kind === 'needs-microphone') {
-			return {
-				label: 'Microphone access needed',
-				detail: 'Allow microphone access to start a voice conversation.',
-				orb: 'idle'
-			};
+			return stageState.blocked
+				? {
+						label: 'Microphone blocked',
+						detail:
+							'Allow the microphone for this site in your browser, for example with the icon next to the address, then try again.',
+						orb: 'idle'
+					}
+				: {
+						label: 'Microphone access needed',
+						detail: 'Allow microphone access to start a voice conversation.',
+						orb: 'idle'
+					};
 		}
 		if (stageState.kind === 'connecting') {
 			return {
@@ -77,9 +95,16 @@
 			};
 		}
 		if (stageState.kind === 'error') {
-			return { label: 'Connection lost', detail: stageState.message, orb: 'error' };
+			return {
+				label: stageState.title ?? 'Connection lost',
+				detail: stageState.message,
+				orb: 'error'
+			};
 		}
 		if (stageState.kind === 'connected') {
+			if (stageState.closing) {
+				return { label: 'Ending…', detail: 'Closing your live conversation.', orb: 'muted' };
+			}
 			if (stageState.confirmation) {
 				return {
 					label: 'Waiting for your confirmation',
@@ -114,6 +139,23 @@
 	const connectedState = $derived(stageState.kind === 'connected' ? stageState : undefined);
 	const activity = $derived(connectedState?.activity);
 	const confirmation = $derived(connectedState?.confirmation);
+	const confirmationDetails = $derived.by(() => {
+		if (!confirmation) return '';
+		const count = confirmation.affectedCount;
+		return [
+			'Change',
+			confirmation.targets.join(', ') || 'All matching devices',
+			count === undefined ? '' : `${count} ${count === 1 ? 'device' : 'devices'}`
+		]
+			.filter(Boolean)
+			.join(' · ');
+	});
+	let confirmationCard = $state<HTMLElement>();
+
+	// Focus goes to the card, not a button, so a stray Enter or Space cannot approve.
+	$effect(() => {
+		if (confirmationCard && onapprove) confirmationCard.focus({ preventScroll: true });
+	});
 	const secondarySignals = $derived.by(() => {
 		if (!connectedState) return [];
 		const signals = [];
@@ -138,7 +180,7 @@
 
 <section
 	class="voice-stage mx-auto flex min-h-[min(760px,100dvh)] w-full max-w-[560px] flex-col gap-5 rounded-card p-5 surface-glass sm:p-7"
-	aria-label="Live conversation preview"
+	aria-label="Live conversation"
 >
 	<header class="flex items-start justify-between gap-3">
 		<div>
@@ -161,65 +203,96 @@
 		</div>
 	</header>
 
-	<div class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+	<div class="stage-focus flex flex-1 flex-col items-center justify-center gap-4 text-center">
 		<div class={['voice-orb', `orb-${presentation.orb}`]} aria-hidden="true">
 			<AssistantOrb size="hero" />
 			{#if !microphoneOn}
 				<span class="voice-orb-mute"><MicOff size={22} /></span>
 			{/if}
 		</div>
-		<div class="space-y-1">
+		<div class="stage-status space-y-1">
 			<p class="text-xl font-semibold" role="status" aria-live="polite" aria-atomic="true">
 				{presentation.label}
 			</p>
 			<p class="text-sm text-ink-muted">{presentation.detail}</p>
-			{#if secondarySignals.length > 0}
-				<ul class="flex flex-wrap justify-center gap-2 pt-2" aria-label="Also active">
-					{#each secondarySignals as signal (signal)}
-						<li class="rounded-full border border-line-strong px-3 py-1 text-xs font-medium">
-							{signal}
-						</li>
-					{/each}
-				</ul>
+			{#if connectedState?.notice}
+				<p class="mx-auto notice max-w-sm notice-warning text-left text-sm" aria-live="polite">
+					<TriangleAlert class="shrink-0 text-warning" size={18} aria-hidden="true" />
+					<span>{connectedState.notice}</span>
+				</p>
+			{/if}
+			{#if connectedState}
+				<!-- The row keeps its height so the stage does not jump when states overlap. -->
+				<div class="min-h-9 pt-2">
+					{#if secondarySignals.length > 0}
+						<ul class="flex flex-wrap justify-center gap-2" aria-label="Also active">
+							{#each secondarySignals as signal (signal)}
+								<li class="rounded-full border border-line-strong px-3 py-1 text-xs font-medium">
+									{signal}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>
 
-	<div class="space-y-4">
-		<div class="flex items-center justify-between gap-3">
-			<h3 class="text-sm font-semibold">Captions</h3>
-			<button
-				type="button"
-				class="min-h-11 rounded-control px-3 text-sm text-ink-muted hover:bg-white/10 hover:text-ink"
-				onclick={() => (captionsVisible = !captionsVisible)}
-				aria-expanded={captionsVisible}
-			>
-				{captionsVisible ? 'Hide captions' : 'Show captions'}
-			</button>
-		</div>
-		{#if captionsVisible}
-			<div
-				class="space-y-2 rounded-tile bg-white/5 p-3 text-sm"
-				role="group"
-				aria-label="Captions"
-				aria-live="off"
-			>
-				{#if connectedState?.heardText}
-					<p class="text-ink-muted">
-						<span class="font-semibold text-ink">You:</span>
-						{connectedState.heardText}
-					</p>
-				{/if}
-				{#if connectedState?.spokenText}
+	<div class="stage-details space-y-4">
+		{#if stageState.kind === 'needs-microphone'}
+			{#if !stageState.blocked}
+				<div class="space-y-1 rounded-tile bg-white/5 p-3 text-sm text-ink-muted">
 					<p>
-						<span class="font-semibold text-accent-ink">Home Agent:</span>
-						{connectedState.spokenText}
+						While a conversation is open, your voice is sent through this application's server to
+						the model provider. Transcripts are not stored unless you turn that on in Settings.
 					</p>
-				{/if}
-				{#if !connectedState?.heardText && !connectedState?.spokenText}
-					<p class="text-ink-muted">Captions will appear here during a conversation.</p>
-				{/if}
+					{#if voiceName}
+						<p class="flex flex-wrap items-center gap-x-2">
+							<span>Voice: <span class="font-medium text-ink">{voiceName}</span></span>
+							<a
+								class="inline-flex min-h-11 items-center font-medium text-accent-ink underline"
+								href={resolve('/settings')}>Change in Settings</a
+							>
+						</p>
+					{/if}
+				</div>
+			{/if}
+		{:else}
+			<div class="flex items-center justify-between gap-3">
+				<h3 class="text-sm font-semibold">Captions</h3>
+				<button
+					type="button"
+					class="min-h-11 rounded-control px-3 text-sm text-ink-muted hover:bg-white/10 hover:text-ink"
+					onclick={() => (captionsVisible = !captionsVisible)}
+					aria-expanded={captionsVisible}
+				>
+					{captionsVisible ? 'Hide captions' : 'Show captions'}
+				</button>
 			</div>
+			{#if captionsVisible}
+				<div
+					class="space-y-2 rounded-tile bg-white/5 p-3 text-sm"
+					role="group"
+					aria-label="Captions"
+					aria-live="off"
+				>
+					{#if connectedState?.heardText}
+						<p class="text-ink-muted">
+							<span class="font-semibold text-ink">You:</span>
+							{connectedState.heardText}
+						</p>
+					{/if}
+					{#if connectedState?.spokenText}
+						<p>
+							<span class="font-semibold text-accent-ink">Home Agent:</span>
+							{connectedState.spokenText}
+						</p>
+					{/if}
+					{#if !connectedState?.heardText && !connectedState?.spokenText}
+						<p class="text-ink-muted">Captions will appear here during a conversation.</p>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 
 		{#if activity}
@@ -243,13 +316,16 @@
 		{/if}
 
 		{#if confirmation}
-			<section class="rounded-tile p-4 surface-solid" aria-labelledby="voice-confirmation-title">
+			<section
+				class="rounded-tile p-4 surface-solid"
+				aria-labelledby="voice-confirmation-title"
+				aria-describedby="voice-confirmation-summary"
+				tabindex="-1"
+				bind:this={confirmationCard}
+			>
 				<h3 id="voice-confirmation-title" class="font-semibold">Waiting for your confirmation</h3>
-				<p class="mt-2">{confirmation.summary}</p>
-				<p class="mt-1 text-sm text-ink-muted">
-					Change · {confirmation.targets.join(', ')} · {confirmation.affectedCount}
-					{confirmation.affectedCount === 1 ? 'device' : 'devices'}
-				</p>
+				<p id="voice-confirmation-summary" class="mt-2">{confirmation.summary}</p>
+				<p class="mt-1 text-sm text-ink-muted">{confirmationDetails}</p>
 				<div class="mt-4 flex flex-wrap gap-2">
 					<button type="button" class="btn btn-primary" disabled={!onapprove} onclick={onapprove}>
 						Approve
@@ -265,7 +341,7 @@
 			{#if stageState.kind === 'ready'}
 				<button
 					type="button"
-					class="btn min-h-12 btn-primary"
+					class="col-span-2 btn min-h-12 btn-primary"
 					disabled={!onstart}
 					onclick={onstart}
 				>
@@ -274,16 +350,16 @@
 			{:else if stageState.kind === 'needs-microphone'}
 				<button
 					type="button"
-					class="btn min-h-12 btn-primary"
+					class="col-span-2 btn min-h-12 btn-primary"
 					disabled={!onpermission}
 					onclick={onpermission}
 				>
-					Allow microphone
+					{stageState.blocked ? 'Try again' : 'Allow microphone'}
 				</button>
 			{:else if stageState.kind === 'error'}
 				<button
 					type="button"
-					class="btn min-h-12 btn-primary"
+					class="col-span-2 btn min-h-12 btn-primary"
 					disabled={!onretry}
 					onclick={onretry}
 				>
@@ -293,7 +369,7 @@
 				<button
 					type="button"
 					class="btn min-h-12 btn-secondary"
-					disabled={!ontogglemicrophone}
+					disabled={!ontogglemicrophone || stageState.closing}
 					onclick={ontogglemicrophone}
 				>
 					{#if stageState.microphoneOn}
@@ -302,15 +378,16 @@
 						<Mic size={17} aria-hidden="true" /> Turn microphone on
 					{/if}
 				</button>
-			{:else}
-				<span></span>
 			{/if}
 			{#if stageState.kind === 'connecting' || stageState.kind === 'connected'}
-				<button type="button" class="btn min-h-12 btn-secondary" disabled={!onend} onclick={onend}>
+				<button
+					type="button"
+					class={['btn min-h-12 btn-secondary', stageState.kind === 'connecting' && 'col-span-2']}
+					disabled={!onend || connectedState?.closing}
+					onclick={onend}
+				>
 					<PhoneOff size={17} aria-hidden="true" /> End
 				</button>
-			{:else}
-				<span></span>
 			{/if}
 		</div>
 
@@ -402,6 +479,48 @@
 	@keyframes think-turn {
 		to {
 			transform: rotate(360deg);
+		}
+	}
+	@media (max-height: 600px) {
+		.voice-orb {
+			width: 140px;
+		}
+	}
+	/* A phone in landscape: the orb on the left; status, captions, and controls on the right. */
+	@media (orientation: landscape) and (max-height: 500px) {
+		.voice-stage {
+			display: grid;
+			grid-template-columns: minmax(96px, 28%) minmax(0, 1fr);
+			column-gap: 1.25rem;
+			align-items: center;
+			min-height: 0;
+		}
+		.voice-stage > header {
+			grid-column: 1 / -1;
+		}
+		.stage-focus {
+			display: contents;
+		}
+		.voice-orb {
+			grid-row: 2 / span 2;
+			grid-column: 1;
+			justify-self: center;
+			width: min(100%, 140px);
+		}
+		.stage-status,
+		.stage-details {
+			grid-column: 2;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.voice-orb {
+			transition: none;
+		}
+		.orb-listening:not(.orb-muted),
+		.orb-speaking,
+		.orb-thinking,
+		.orb-connecting::after {
+			animation: none;
 		}
 	}
 	.tool-read {
