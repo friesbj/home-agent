@@ -1,3 +1,293 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/plus-jakarta-sans';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+/*
+ * Ambient Home design tokens (see Design.md). Contrast was calculated against the
+ * canvas, glass, selected, solid, and brightest light-field surfaces: text roles
+ * reach at least 5.4:1 and control borders at least 3:1.
+ */
+@theme {
+	--font-ambient: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+	--color-canvas: #0b142d;
+	--color-ink: #fcfcff;
+	--color-ink-muted: #a6b7e7;
+	--color-accent: #7664fc;
+	--color-accent-fill: #5b4bd6;
+	--color-accent-ink: #b3a6ff;
+	--color-surface-solid: #151d3a;
+	--color-surface-bar: #131a38;
+	--color-surface-selected: #303172;
+	--color-line: #5b7dd3;
+	--color-line-strong: #6f82bd;
+	--color-cool: #7fdcff;
+	--color-warm: #f5b556;
+	--color-violet: #b3a6ff;
+	--color-success: #7ee2b0;
+	--color-warning: #f7c768;
+	--color-danger: #ff9e9e;
+
+	--radius-control: 0.75rem;
+	--radius-tile: 1rem;
+	--radius-card: 1.5rem;
+
+	--ease-calm: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ambient-shell {
+	/* Long words, names, and addresses wrap instead of widening the layout. */
+	overflow-wrap: anywhere;
+	background:
+		radial-gradient(ellipse 70% 45% at 95% 0%, #35346d 0%, transparent 70%),
+		radial-gradient(ellipse 90% 35% at 15% 100%, #202654 0%, transparent 70%), var(--color-canvas);
+	background-attachment: fixed;
+	color: var(--color-ink);
+	color-scheme: dark;
+}
+
+/* A fieldset defaults to its content's minimum width, which can force horizontal scrolling. */
+fieldset {
+	min-width: 0;
+}
+
+/* Slim scrollbars that blend into the dark surfaces. */
+/* Chromium ignores the ::-webkit-scrollbar rules below when these standard properties are set. */
+@supports not selector(::-webkit-scrollbar) {
+	:root,
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: rgb(179 166 255 / 0.35) transparent;
+	}
+}
+
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+::-webkit-scrollbar-button {
+	display: none;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	border-radius: 9999px;
+	background: rgb(179 166 255 / 0.35);
+	&:hover {
+		background: rgb(179 166 255 / 0.55);
+	}
+}
+
+.ambient-shell :is(button, a, summary, input, textarea, select):focus-visible {
+	outline: 3px solid var(--color-accent-ink);
+	outline-offset: 3px;
+}
+
+/* Resting translucent card; text on it keeps its contrast over the brightest light field. */
+@utility surface-glass {
+	border: 1px solid rgb(91 125 211 / 0.3);
+	background: linear-gradient(160deg, rgb(42 45 92 / 0.8), rgb(26 36 71 / 0.85));
+}
+
+/* Current selection or pressed feedback; the only card that may glow. */
+@utility surface-selected {
+	border: 1px solid #5a50c6;
+	background: var(--color-surface-selected);
+	box-shadow: 0 0 24px rgb(109 92 246 / 0.25);
+}
+
+/* Nearly opaque surface for decisions, errors, inputs, tool results, and code. */
+@utility surface-solid {
+	border: 1px solid rgb(111 130 189 / 0.45);
+	background: var(--color-surface-solid);
+}
+
+/* Floating bars over scrolling content: blur with an opaque fallback. */
+@utility surface-bar {
+	border-color: rgb(165 180 252 / 0.2);
+	background: var(--color-surface-bar);
+	@supports (backdrop-filter: blur(1px)) {
+		background: rgb(19 26 56 / 0.88);
+		backdrop-filter: blur(14px);
+	}
+}
+
+@utility icon-well {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 2.75rem;
+	height: 2.75rem;
+	border: 1px solid rgb(91 125 211 / 0.3);
+	border-radius: var(--radius-control);
+	background: rgb(255 255 255 / 0.06);
+}
+
+@utility btn {
+	display: inline-flex;
+	min-height: 2.75rem;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border-radius: var(--radius-control);
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+	transition:
+		background-color 150ms var(--ease-calm),
+		border-color 150ms var(--ease-calm);
+	&:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
+	}
+}
+
+@utility btn-primary {
+	background: var(--color-accent-fill);
+	color: #ffffff;
+	&:hover:not(:disabled) {
+		background: #6a5ae6;
+	}
+}
+
+@utility btn-secondary {
+	border: 1px solid var(--color-line-strong);
+	background: rgb(255 255 255 / 0.04);
+	color: var(--color-ink);
+	&:hover:not(:disabled) {
+		background: rgb(255 255 255 / 0.1);
+	}
+}
+
+@utility btn-quiet {
+	color: var(--color-ink-muted);
+	&:hover:not(:disabled) {
+		background: rgb(255 255 255 / 0.08);
+		color: var(--color-ink);
+	}
+}
+
+/* Dark form field on the solid surface; overrides the forms plugin defaults. */
+@utility field {
+	min-height: 2.75rem;
+	border: 1px solid var(--color-line-strong);
+	border-radius: var(--radius-control);
+	/* background-color only, so the forms plugin keeps the select arrow image. */
+	background-color: #0f1733;
+	color: var(--color-ink);
+	&::placeholder {
+		color: var(--color-ink-muted);
+		opacity: 0.8;
+	}
+	&:focus {
+		border-color: var(--color-accent-ink);
+		box-shadow: none;
+	}
+}
+
+/* Status notices use the solid surface, an icon, and text; color is never the only signal. */
+@utility notice {
+	display: flex;
+	gap: 0.75rem;
+	border: 1px solid rgb(111 130 189 / 0.45);
+	border-left-width: 4px;
+	border-radius: var(--radius-tile);
+	background: var(--color-surface-solid);
+	padding: 0.75rem 1rem;
+	font-size: 0.875rem;
+	color: var(--color-ink);
+}
+
+@utility notice-error {
+	border-left-color: var(--color-danger);
+}
+
+@utility notice-warning {
+	border-left-color: var(--color-warning);
+}
+
+@utility notice-info {
+	border-left-color: var(--color-accent-ink);
+}
+
+@utility notice-success {
+	border-left-color: var(--color-success);
+}
+
+/* Destructive actions: outlined at rest, filled only in the explicit confirmation step. */
+@utility btn-danger {
+	border: 1px solid rgb(255 158 158 / 0.6);
+	color: var(--color-danger);
+	&:hover:not(:disabled) {
+		background: rgb(255 158 158 / 0.1);
+	}
+}
+
+@utility btn-danger-confirm {
+	background: #c0392b;
+	color: #ffffff;
+	&:hover:not(:disabled) {
+		background: #a93226;
+	}
+}
+
+/* A settings or onboarding group: glass card whose legend sits inside the card. */
+@utility form-section {
+	border: 1px solid rgb(91 125 211 / 0.3);
+	border-radius: var(--radius-card);
+	background: linear-gradient(160deg, rgb(42 45 92 / 0.8), rgb(26 36 71 / 0.85));
+	padding: 1.25rem;
+	& > legend {
+		float: left;
+		width: 100%;
+		margin-bottom: 1rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
+	& > legend + * {
+		clear: both;
+	}
+}
+
+/* A group inside a section, such as Advanced settings: no card, separated by a hairline. */
+@utility form-group {
+	& + & {
+		border-top: 1px solid rgb(255 255 255 / 0.1);
+		padding-top: 1.5rem;
+	}
+	& > legend {
+		float: left;
+		width: 100%;
+		margin-bottom: 1rem;
+		font-weight: 600;
+	}
+	& > legend + * {
+		clear: both;
+	}
+}
+
+.ambient-shell :is(input[type='checkbox'], input[type='radio']) {
+	width: 1.25rem;
+	height: 1.25rem;
+	border-color: var(--color-line-strong);
+	background-color: #0f1733;
+	color: var(--color-accent);
+}
+
+.ambient-shell :is(input[type='checkbox'], input[type='radio']):focus {
+	--tw-ring-offset-color: var(--color-surface-solid);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ambient-shell *,
+	.ambient-shell *::before,
+	.ambient-shell *::after {
+		animation: none !important;
+		transition-duration: 0.01ms !important;
+	}
+}

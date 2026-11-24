@@ -2,7 +2,53 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-24
+
+### 2026-11-24T20:27:06+01:00
+
+- **M2a is complete (user decision):** the design milestone, including device acceptance, is accepted. Next planned work is M3 (GPT-Live), which starts with the presentational voice stage and its state gallery as specified in `Design.md`; the open product decisions in "Open Design Questions" (transcript destination, spoken approval, hidden tab, voice samples) should be answered before or early in M3. The M2a branch `feat/m2a-mobile-design` is not yet merged into `main`.
+
+### 2026-11-24T18:27:46+01:00
+
+- **Favicon assets:** `static/favicon.ico` and `static/apple-touch-icon.png` are derived from `static/favicon.svg`; there is no generator script in the repository. Re-render them (for example with Playwright, transparent background for the ICO, full-bleed `#0b142d` for the touch icon) whenever the SVG changes.
+
+### 2026-11-24T18:09:24+01:00
+
+- **Voice mode specification:** `Design.md` "Future Voice Mode" is the complete spec for M3. Decisions taken from the user's UX workspace prototype (a simulation with seven states and a state selector, mic never used): mute is a property of the microphone, not a state; the status word stays one constant color; exits are End and Back to text; first use shows one setup screen with "Allow microphone"; focus returns to the opener. Added by us: thinking/delegation and tool-use states, priority rules for overlapping states, real-signal-only orb motion, and confirmation focus handling. Open product decisions (transcript destination, spoken approval, hidden tab, voice samples) are in "Open Design Questions".
+- **Workspace labels are swapped:** on that site, `voice-reference.png` is a chat screenshot and `chat-reference.png` is the wireframe orb. The images were only inspected temporarily and are not stored in the repository.
+- **Test environment:** the E2E server shares one rate limiter (default 30 requests per minute) across parallel tests, so many page loads surface as "Too many requests" and a missing Rooms region. `playwright.config.ts` raises the limit; production defaults are unchanged.
+- **Measuring contrast on gradients:** Axe cannot judge text over gradients and blur. `measureContrast` in `design-acceptance.test.ts` hides the text, screenshots the page, and samples the real pixels under each text box. Wait for smooth scrolling and Tailwind color transitions to finish first, or the result is wrong (a mid-scroll read reported 1.02:1).
+- **Layout hardening:** `overflow-wrap: anywhere` on the shell and `min-width: 0` on fieldsets keep long words from forcing horizontal scrolling at 200% text. A focus ring that sits on a field wrapper (composer) counts as the field's focus indicator.
+- **Not automated:** real iOS Safari and Android Chrome behavior with the on-screen keyboard, real screen readers, and mid-range phone smoothness remain the user's device acceptance.
+
+### 2026-11-24T00:05:57+01:00
+
+- **Minimal settings (user requirement):** onboarding and Settings show only what every user needs to start: server address, access token, and OpenAI API key, plus the active confirmation rule. Add new options under "Advanced settings" unless all users need them to start. Hidden-field errors must open the disclosure and focus the field (`ESSENTIAL_FIELDS` in `SettingsForm.svelte`).
+- **Auth default:** `mcp.authType` defaults to `bearer`, because the Home Assistant MCP integration requires a long-lived access token. Tests no longer select it.
+- **Test selectors:** use `{ exact: true }` for "Access token" (also matches "Home Assistant access token"), "Voice" (also matches the transcript checkbox), and "Advanced settings" (also appears in the safety summary).
+
 ## 2026-11-23
+
+### 2026-11-23T23:46:41+01:00
+
+- **Design system usage:** build UI from the tokens and utilities in `src/routes/layout.css` (`surface-*`, `btn btn-*`, `field`, `notice notice-*`, `icon-well`, `form-section`) instead of one-off colors. `field` sets only `background-color`, because the `background` shorthand removes the forms plugin's select arrow.
+- **Shortcut path:** Home shortcuts call `getChatSessionManager().submitShortcut()`, which reuses the normal chat request and server-side approval and refuses while a switch, response, or pending approval is in progress. Use this path, not a new endpoint, for later assistant shortcuts.
+- **Home data:** `src/lib/home/summary.ts` derives the status sentence and summaries from one fetch. Scenes and scripts report "unknown" when not yet triggered; treat that as idle, not unavailable.
+- **E2E port conflict:** Playwright starts its own fake MCP server on port 4180. Stop any manually started fake server first, or the suite aborts without test output.
+
+### 2026-11-23T23:18:37+01:00
+
+- **Prettier on Windows:** `core.autocrlf=true` gives working-tree files CRLF endings, so `npx prettier --check .` reports many unchanged files. Judge formatting by the files you changed, or compare against `main`, before treating it as a regression.
+- **Flaky-test diagnosis:** compare a failing test against `main` in a temporary `git worktree` (with a `node_modules` junction). Remove that junction with `cmd /c rmdir` only, never with recursive `Remove-Item`, so the shared `node_modules` stays intact.
+
+### 2026-11-23T23:07:46+01:00
+
+- **M2a desktop orb:** The user wants the orb to be a central desktop element too. The agreed direction places a prominent orb in the empty Assistant panel and a compact orb in its header during conversations; the immersive voice orb remains in M3.
+
+### 2026-11-23T22:57:30+01:00
+
+- **M2a initial shell:** `src/routes/+page.svelte` keeps both Home and Assistant mounted on mobile and hides the inactive view, because unmounting `ChatPanel` cancels work. Switching views scrolls to the top; Settings remains a separate route with its existing cancellation behavior.
+- **Initial design choices:** Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans`, icons use `@lucide/svelte`, and the orb is original static SVG/CSS. Home and chat still use their light surfaces pending their dedicated M2a redesigns.
 
 ### 2026-11-23T22:36:37+01:00
 

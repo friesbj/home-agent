@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { ArrowLeft, ChevronDown, CircleAlert, CircleCheck } from '@lucide/svelte';
 	import SettingsForm, { type SettingsFormResult } from '$lib/components/SettingsForm.svelte';
 	import StorageNotice from '$lib/components/StorageNotice.svelte';
 	import { appConfig } from '$lib/config/app-config.svelte';
@@ -82,17 +83,22 @@
 
 <svelte:head><title>Settings · Home Agent</title></svelte:head>
 
-<main class="mx-auto max-w-3xl space-y-8 px-4 py-10">
-	<header class="flex items-center justify-between gap-4">
-		<h1 class="text-3xl font-semibold text-stone-900">Settings</h1>
-		<a class="text-stone-700 underline" href={resolve('/')}>Back to assistant</a>
+<main class="mx-auto max-w-3xl space-y-8 px-5 py-8">
+	<header class="space-y-4">
+		<a class="-ml-3 btn btn-quiet" href={resolve('/')}
+			><ArrowLeft size={18} aria-hidden="true" /> Back to assistant</a
+		>
+		<h1 class="text-[1.75rem] leading-tight font-semibold tracking-tight">Settings</h1>
 	</header>
 
 	<div role="status" aria-live="polite">
 		{#if statusMessages.length > 0}
-			<ul class="space-y-1 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
-				{#each statusMessages as message (message)}<li>{message}</li>{/each}
-			</ul>
+			<div class="notice notice-success">
+				<CircleCheck class="shrink-0 text-success" size={20} aria-hidden="true" />
+				<ul class="space-y-1">
+					{#each statusMessages as message (message)}<li>{message}</li>{/each}
+				</ul>
+			</div>
 		{/if}
 	</div>
 
@@ -110,114 +116,136 @@
 		/>
 	{/key}
 
-	<section class="space-y-3" aria-labelledby="stored-credentials">
-		<h2 id="stored-credentials" class="text-lg font-semibold text-stone-900">Stored credentials</h2>
-		<ul class="divide-y divide-stone-200 rounded-md border border-stone-200">
-			{#each secretNames as name (name)}
-				<li class="flex items-center justify-between gap-4 p-3">
-					<span>
-						<span class="block font-medium text-stone-800">{SECRET_LABELS[name]}</span>
-						<span class="text-sm text-stone-600">
-							{appConfig.secretStatus[name] === 'stored' ? 'Stored' : 'Not stored'}
-						</span>
-					</span>
-					{#if appConfig.secretStatus[name] === 'stored'}
+	<details class="group rounded-card surface-glass">
+		<summary
+			class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-card px-5 py-3 hover:bg-white/5 [&::-webkit-details-marker]:hidden"
+		>
+			<span>
+				<span class="block font-semibold">Data and privacy</span>
+				<span class="block text-sm text-ink-muted"
+					>Stored credentials, chat history, and resetting this browser</span
+				>
+			</span>
+			<ChevronDown
+				class="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+				size={20}
+				aria-hidden="true"
+			/>
+		</summary>
+		<div class="space-y-6 border-t border-white/10 p-5">
+			<section class="space-y-3" aria-labelledby="stored-credentials">
+				<h2 id="stored-credentials" class="text-lg font-semibold">Stored credentials</h2>
+				<ul class="divide-y divide-white/10">
+					{#each secretNames as name (name)}
+						<li class="flex min-h-14 items-center justify-between gap-4 py-2">
+							<span>
+								<span class="block font-medium">{SECRET_LABELS[name]}</span>
+								<span class="text-sm text-ink-muted">
+									{appConfig.secretStatus[name] === 'stored' ? 'Stored' : 'Not stored'}
+								</span>
+							</span>
+							{#if appConfig.secretStatus[name] === 'stored'}
+								<button type="button" class="btn btn-danger" onclick={() => deleteSecret(name)}>
+									Delete <span class="sr-only">{SECRET_LABELS[name]}</span>
+								</button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</section>
+
+			<section
+				class="space-y-5 rounded-card border border-danger/40 p-5"
+				aria-labelledby="danger-heading"
+			>
+				<div>
+					<h2 id="danger-heading" class="text-lg font-semibold text-danger">Delete and reset</h2>
+					<p class="mt-1 text-sm text-ink-muted">
+						These actions affect data in this browser and ask for confirmation first.
+					</p>
+				</div>
+
+				<section class="space-y-3" aria-labelledby="history-heading">
+					<h3 id="history-heading" class="font-semibold">Chat history</h3>
+					{#if historyError}
+						<p class="notice notice-error" role="alert">
+							<CircleAlert class="shrink-0 text-danger" size={20} aria-hidden="true" />
+							<span>{historyError}</span>
+						</p>
+					{/if}
+					{#if pendingHistoryDeletion}
+						<div
+							class="space-y-3 rounded-tile border-l-4 border-l-danger p-4 surface-solid"
+							role="alertdialog"
+							aria-labelledby="history-question"
+						>
+							<p id="history-question" class="font-medium">
+								Delete saved chat history from this browser?
+							</p>
+							<div class="flex flex-wrap gap-3">
+								<button type="button" class="btn btn-danger-confirm" onclick={deleteHistory}
+									>Delete history</button
+								>
+								<button
+									type="button"
+									class="btn btn-secondary"
+									onclick={() => (pendingHistoryDeletion = false)}>Cancel</button
+								>
+							</div>
+						</div>
+					{:else}
 						<button
 							type="button"
-							class="rounded-md border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100"
-							onclick={() => deleteSecret(name)}
+							class="btn btn-danger"
+							onclick={() => (pendingHistoryDeletion = true)}
 						>
-							Delete <span class="sr-only">{SECRET_LABELS[name]}</span>
+							Clear chat history
 						</button>
 					{/if}
-				</li>
-			{/each}
-		</ul>
-	</section>
+				</section>
 
-	<section class="space-y-3" aria-labelledby="history-heading">
-		<h2 id="history-heading" class="text-lg font-semibold text-stone-900">Chat history</h2>
-		{#if historyError}
-			<p class="text-sm text-red-700" role="alert">{historyError}</p>
-		{/if}
-		{#if pendingHistoryDeletion}
-			<div
-				class="rounded-md border border-red-300 bg-red-50 p-4"
-				role="alertdialog"
-				aria-labelledby="history-question"
-			>
-				<p id="history-question">Delete saved chat history from this browser?</p>
-				<div class="mt-3 flex gap-3">
-					<button
-						type="button"
-						class="rounded-md bg-red-700 px-3 py-1 text-white"
-						onclick={deleteHistory}>Delete history</button
-					>
-					<button
-						type="button"
-						class="rounded-md border border-stone-300 px-3 py-1"
-						onclick={() => (pendingHistoryDeletion = false)}>Cancel</button
-					>
-				</div>
-			</div>
-		{:else}
-			<button
-				type="button"
-				class="rounded-md border border-red-300 px-3 py-2 text-red-800 hover:bg-red-50"
-				onclick={() => (pendingHistoryDeletion = true)}
-			>
-				Clear chat history
-			</button>
-		{/if}
-	</section>
-
-	<section class="space-y-3" aria-labelledby="reset-heading">
-		<h2 id="reset-heading" class="text-lg font-semibold text-stone-900">Reset</h2>
-		{#if pendingReset}
-			<div
-				class="rounded-md border border-red-300 bg-red-50 p-4"
-				role="alertdialog"
-				aria-labelledby="reset-question"
-			>
-				<p id="reset-question" class="font-medium text-red-900">
-					{pendingReset === 'all'
-						? 'Delete all settings, credentials, and history from this browser?'
-						: 'Restore voice, model, confirmation, favorites, and history preferences to defaults?'}
-				</p>
-				<div class="mt-3 flex gap-3">
-					<button
-						type="button"
-						class="rounded-md bg-red-700 px-3 py-1 text-white hover:bg-red-800"
-						onclick={confirmReset}
-					>
-						{pendingReset === 'all' ? 'Delete everything' : 'Restore defaults'}
-					</button>
-					<button
-						type="button"
-						class="rounded-md border border-stone-300 px-3 py-1 hover:bg-stone-100"
-						onclick={() => (pendingReset = null)}
-					>
-						Cancel
-					</button>
-				</div>
-			</div>
-		{:else}
-			<div class="flex flex-wrap gap-3">
-				<button
-					type="button"
-					class="rounded-md border border-stone-300 px-3 py-2 hover:bg-stone-100"
-					onclick={() => (pendingReset = 'preferences')}
-				>
-					Reset preferences to defaults
-				</button>
-				<button
-					type="button"
-					class="rounded-md border border-red-300 px-3 py-2 text-red-800 hover:bg-red-50"
-					onclick={() => (pendingReset = 'all')}
-				>
-					Reset all data
-				</button>
-			</div>
-		{/if}
-	</section>
+				<section class="space-y-3" aria-labelledby="reset-heading">
+					<h3 id="reset-heading" class="font-semibold">Reset</h3>
+					{#if pendingReset}
+						<div
+							class="space-y-3 rounded-tile border-l-4 border-l-danger p-4 surface-solid"
+							role="alertdialog"
+							aria-labelledby="reset-question"
+						>
+							<p id="reset-question" class="font-medium">
+								{pendingReset === 'all'
+									? 'Delete all settings, credentials, and history from this browser?'
+									: 'Restore your name, voice, model, confirmation, favorites, and history preferences to defaults?'}
+							</p>
+							<div class="flex flex-wrap gap-3">
+								<button type="button" class="btn btn-danger-confirm" onclick={confirmReset}>
+									{pendingReset === 'all' ? 'Delete everything' : 'Restore defaults'}
+								</button>
+								<button
+									type="button"
+									class="btn btn-secondary"
+									onclick={() => (pendingReset = null)}
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					{:else}
+						<div class="flex flex-wrap gap-3">
+							<button
+								type="button"
+								class="btn btn-secondary"
+								onclick={() => (pendingReset = 'preferences')}
+							>
+								Reset preferences to defaults
+							</button>
+							<button type="button" class="btn btn-danger" onclick={() => (pendingReset = 'all')}>
+								Reset all data
+							</button>
+						</div>
+					{/if}
+				</section>
+			</section>
+		</div>
+	</details>
 </main>

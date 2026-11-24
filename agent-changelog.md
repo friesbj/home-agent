@@ -2,7 +2,83 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-24
+
+### 2026-11-24T20:27:06+01:00
+
+- **M2a closed:** the user accepted the device acceptance (real iOS and Android browsers, on-screen keyboard, safe areas, screen reader, smoothness) on 2026-11-24, so the last open M2a todo is done. `Milestones.md` marks it `[x]` and notes that the agent did not run this check; `Design.md` no longer says the design is unimplemented or that voice specification and validation are open. Documentation only; no tests run.
+
+### 2026-11-24T18:27:46+01:00
+
+- **Favicon (user request):** replaced the default Svelte logo with the orb. `static/favicon.svg` is the source (simplified for 16 px: three outlines, six nodes, brighter sphere); `static/favicon.ico` (32 px PNG in an ICO container) and `static/apple-touch-icon.png` (180 px on `#0b142d`) were rendered from it with Playwright. `src/app.html` declares the icons and `theme-color`; the unused import in `+layout.svelte` and `src/lib/assets/favicon.svg` are removed. New E2E test in `e2e/onboarding.test.ts` checks that the icons are declared and served. `Design.md` documents it.
+- **Validation:** `npm run check` (0 errors), ESLint on the test, full `npx playwright test` (37/37). Inspected the icon at 16, 32, 64, and 180 px.
+
+### 2026-11-24T18:09:24+01:00
+
+- **M2a finalization:** Specified the voice mode and validated the design against measured criteria.
+  - `Design.md`: rewrote "Future Voice Mode" from the plan and the user's UX workspace prototype (entry points and first use, exits, layout for mobile and desktop, ten states with real signals and priority rules, confirmation in voice, canvas orb rendering, captions and transcripts, accessibility, development-only state gallery), updated the outdated Navigation text, added "Open Design Questions", "Verification Status", and the decisions below. `Milestones.md`: M2a voice specification and validation done; M3 gained the stage-first, first-use, mute, focus, and canvas-orb todos; added a user-owned device acceptance todo. `AGENTS.md`: testing strategy line.
+  - New `e2e/design-acceptance.test.ts` (21 tests): layout at ten sizes, 200% text, touch targets, Axe WCAG 2.x A/AA audit, rendered contrast measured on screenshots with the text hidden, keyboard focus, reduced motion. New dev dependency `@axe-core/playwright`.
+  - Fixes the checks found: `.field` had no 44 px minimum height (inputs were 42 px); a control that hid its own view dropped focus to the body, so `+page.svelte` now focuses the composer (entry card) or the Assistant view (shortcuts); horizontal scrolling at 200% text, fixed with `overflow-wrap: anywhere` on the shell, `min-width: 0` on fieldsets, and wrapping rows in `HomeView` and the `ChatPanel` header; the composer's textarea now fills the whole field and the field draws the 3 px focus ring.
+  - `playwright.config.ts` raises `RATE_LIMIT_MAX_REQUESTS` for the E2E server, because parallel tests share its 30-requests-per-minute limiter.
+- **Validation:** `npm run check` (0 errors), `npx eslint .` (clean), `npx vitest run` (90/90), `npx playwright test` (36/36). Mutation check: a weak secondary text color makes both the Axe audit and the contrast measurement fail. Inspected Home, Assistant with a pending confirmation, and Settings at 390 px and Home at 1280 px. Real devices, real screen readers, and the on-screen keyboard are not automated; see `Milestones.md`.
+
+### 2026-11-24T11:00:00+00:00
+
+- **Scrollbars (user request):** `layout.css` defines slim 6 px scrollbars with a transparent track and a translucent violet thumb for all scroll areas (page, Home column, chat list, code and tables). Chromium and Safari use `::-webkit-scrollbar` (without arrow buttons); Firefox uses `scrollbar-width: thin` and `scrollbar-color` via `@supports not selector(::-webkit-scrollbar)`. `Design.md` documents it.
+
+### 2026-11-24T10:30:00+00:00
+
+- **M2a mobile polish (user request):** On mobile, the Assistant view uses the full screen width without card border, and the page header becomes a transparent Home icon overlay. The composer in `ChatPanel.svelte` is a single field with the round Send/Stop button inside it, growing with its text up to about 160 px (all breakpoints). The mobile navigation bar is icon-only (accessible names unchanged), the orb keeps its size. `Design.md` documents the composer.
+- **Validation:** `npm run check`, ESLint on both files, and the home and chat-history E2E suites (14/14). Inspected at 390 px and 1280x900.
+
+### 2026-11-24T00:15:00+01:00
+
+- **M2a composer (user request):** Send and Stop in `ChatPanel.svelte` are now round, icon-only 44 px buttons with `aria-label` and `title` set to "Send" and "Stop"; Stop uses a filled square. `Design.md` documents the pattern.
+- **Validation:** `npm run check`, ESLint on the component, and the chat-history and home E2E suites (14/14). Inspected the composer at 390 px and 1280×720.
+
+### 2026-11-24T00:05:57+01:00
+
+- **M2a minimal settings (user request):** `SettingsForm.svelte` now shows only "Connect your home": server address, access token, OpenAI API key, "Test connection", and a summary of the active confirmation rule, with a warning icon when confirmations are off. All other options moved unchanged into a collapsed "Advanced settings" disclosure, which opens and focuses the field when it contains a validation error. The access-token field has the visible label "Access token", empty secret fields no longer show "Not stored.", and the address hint is shorter.
+- **Defaults:** `settings.ts` defaults `mcp.authType` to `bearer` for new setups; existing stored settings keep their value.
+- **Pages:** onboarding has a shorter intro, `StorageNotice` is condensed but keeps every required statement, and Settings groups stored credentials, history deletion, and reset in a collapsed "Data and privacy" disclosure. Added the `form-group` utility in `layout.css`.
+- **Tests:** E2E tests and component specs use the new labels and open the disclosures where needed. Onboarding asserts three visible inputs and the required token. A new component test checks that hidden errors open Advanced settings.
+- **Validation:** `npm run check` (0 errors), `npx eslint .`, `npx vitest run` (90/90), the full `npx playwright test` (15/15), and a targeted E2E rerun after the last text change (4/4). Onboarding inspected at 390 px.
+
 ## 2026-11-23
+
+### 2026-11-23T23:46:41+01:00
+
+- **M2a implementation:** Completed the design foundation, Home dashboard, scene shortcuts, Assistant redesign with the desktop orb, and the onboarding and Settings restyle.
+  - `layout.css`: semantic color, radius, and easing tokens plus `surface-glass`, `surface-selected`, `surface-solid`, `surface-bar`, `icon-well`, `btn` variants, `field`, `notice` variants, and `form-section`; dark checkbox and radio styles; a reduced-motion override. The ambient shell moved to `+layout.svelte`, so every route shares it.
+  - `AssistantOrb.svelte`: `header`, `nav`, `card`, and `hero` sizes and an optional slow rotation and breathing animation, static under reduced motion.
+  - New `HomeView.svelte` (greeting, status, refresh, entry card, summaries, scenes, rooms), `DomainIcon.svelte`, and `src/lib/home/summary.ts` with unit tests; `HomeOverview.svelte` became the presentational `RoomList.svelte` with a domain filter. Scenes and scripts no longer show "unknown" as unavailable.
+  - `chat-session.svelte.ts`: `switching`, `busy`, `awaitingApproval`, `shortcutBlockedReason`, and `submitShortcut()`; `ChatPanel` uses the shared `switching` state. Typed messages behave as before.
+  - `ChatPanel`, `MarkdownMessage`, and `ToolCallCard` restyled; visible texts and accessible names are unchanged.
+  - `settings.ts`: optional `profile.displayName` (max. 40), editable in a new Profile section of `SettingsForm`; older stored settings still load.
+  - Onboarding, Settings, and `StorageNotice` restyled; Settings has a separate "Delete and reset" section.
+  - The fake MCP server exposes a climate reading and a "Movie Night" scene for tests.
+- **Tests:** added `summary.spec.ts`, a profile compatibility test in `settings.spec.ts`, HomeView component tests (greeting, filter, scene shortcut and disabled state), and an E2E test that a scene shortcut sends a visible request through the confirmation flow and blocks further shortcuts while pending.
+- **Validation:** `npm run check` (0 errors), `npx eslint .` (clean), Prettier on all changed code files, `npx vitest run` (89/89), and two full `npx playwright test` runs (15/15 each). Inspected Home, Assistant with a pending confirmation, onboarding, and Settings at 390 px and 1280×720 with mocked services. The voice screen specification and the cross-device validation todo remain open.
+
+### 2026-11-23T23:18:37+01:00
+
+- **Test stabilization:** The cross-tab test in `e2e/chat-history.test.ts` was flaky under parallel runs, also on `main` (3/3 full runs failed there). Its storage snapshot could precede the other tab's write. It now waits for that write before snapshotting; the asserted behavior is unchanged.
+- **Readiness check:** `npm run check` (0 errors), `npx eslint .` (clean), `npx vitest run` (80/80), and three full `npx playwright test` runs (14/14 each) passed. `npx prettier --check .` reports 19 files, all also failing on `main` because of CRLF working-tree line endings (`core.autocrlf=true`); every file changed on this branch passes Prettier except the three context Markdown files, which already failed on `main`.
+
+### 2026-11-23T23:07:46+01:00
+
+- **M2a planning:** Updated `Design.md` and `Milestones.md` with the desktop Assistant's prominent empty-state orb and compact conversational header orb; aligned the M3 voice transition and recorded the decision in `agent-knowledge.md`.
+- **Validation:** Documentation-only change; no tests run.
+
+### 2026-11-23T23:05:58+01:00
+
+- **M2a navigation:** Enlarged and raised the center menu orb in `AssistantOrb.svelte` and `+page.svelte`, without changing the Home card orb. Extended the narrow-screen test in `e2e/home.test.ts` to check navigation spacing and composer clearance.
+- **Validation:** The focused Playwright test, `npm run check`, targeted ESLint, and Prettier checks passed. Inspected the mobile view with mocked services.
+
+### 2026-11-23T22:57:30+01:00
+
+- **M2a initial slice:** Added the ambient shell, font, icons, original orb, mobile Home/Assistant/Settings navigation, and desktop split in `src/routes/+page.svelte`, `src/routes/layout.css`, and `src/lib/components/AssistantOrb.svelte`. Preserved mounted chat state and fixed narrow-screen input overflow in `ChatPanel.svelte`; added focused mobile navigation tests in `e2e/home.test.ts` and `e2e/chat-history.test.ts`. Updated dependencies, `Design.md`, and milestone status.
+- **Validation:** `npm run check` and targeted ESLint passed; the build completed during Playwright runs. Mobile navigation, pending approval, narrow-screen, and desktop viewport tests passed. The combined Playwright selection had 12 of 13 pass; the existing cross-tab test intermittently snapshots storage before the other tab's latest write (three isolated repeats passed). `npm audit --omit=dev` reported no production vulnerabilities. Mobile visuals were inspected with mocked services; complete contrast and accessibility validation remains open.
 
 ### 2026-11-23T22:36:37+01:00
 

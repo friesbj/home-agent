@@ -14,6 +14,13 @@ export const FAKE_LIVE_CONTEXT = `Live Context: An overview of the areas and the
   domain: climate
   state: heat
   areas: Living Room
+  attributes:
+    current_temperature: '21.5'
+    temperature_unit: °C
+- names: Movie Night
+  domain: scene
+  state: unknown
+  areas: Living Room
 ${Array.from(
 	{ length: 40 },
 	(_, index) => `- names: Lamp ${index + 1}

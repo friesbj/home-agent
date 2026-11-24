@@ -432,6 +432,7 @@ Before implementation:
 - **Component:** chat states, microphone states, transcript rendering, confirmation dialogs, navigation shell, orb and voice states including reduced motion
 - **Integration:** OpenAI adapter, MCP gateway, mocked Home Assistant MCP server
 - **End-to-end:** login, text chat, read-only entity discovery, approved action, denied action, assistant shortcut through confirmation, voice connection state
+- **Design acceptance:** `e2e/design-acceptance.test.ts` checks layout from 320 px to wide desktop, touch targets, an Axe WCAG audit, rendered text contrast, keyboard focus, and reduced motion against mocked services
 - **Security:** secret redaction, no secrets in logs or UI labels, browser credential deletion and replacement, expired sessions, cross-user isolation, allowlist bypass attempts
 
 Testing must use mocks or a test Home Assistant instance; no real smart-home command should run in automated tests.

@@ -63,6 +63,35 @@ class ChatSessionManager {
 	expected: string | null = null;
 	generation = 0;
 	initialized = $state(false);
+	/** True while a session switch is in progress; no message may be sent meanwhile. */
+	switching = $state(false);
+
+	get busy() {
+		return this.chat.status === 'submitted' || this.chat.status === 'streaming';
+	}
+
+	get awaitingApproval() {
+		return (this.chat.messages.at(-1)?.parts ?? []).some(
+			(part) => 'state' in part && part.state === 'approval-requested'
+		);
+	}
+
+	/** Why a shortcut cannot be sent right now, or an empty string when it can. */
+	get shortcutBlockedReason() {
+		if (this.switching) return 'Opening a conversation…';
+		if (this.awaitingApproval) return 'Answer the pending confirmation first.';
+		if (this.busy) return 'Wait for the current response to finish.';
+		return '';
+	}
+
+	/** Sends a shortcut request through the regular chat path, including server-side confirmation. */
+	submitShortcut(text: string) {
+		const value = text.trim();
+		if (!value || this.shortcutBlockedReason) return false;
+		this.interruptedTools = false;
+		void this.chat.sendMessage({ text: value });
+		return true;
+	}
 
 	async initialize() {
 		if (this.initialized) return;

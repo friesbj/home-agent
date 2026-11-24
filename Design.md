@@ -2,9 +2,11 @@
 
 ## Status and Scope
 
-This document is the evolving, project-wide foundation for Home Agent's design. It describes the design direction and implementation plan for [M2a](./Milestones.md#m2a---mobile-first-product-design); it does not imply that the design has already been implemented or visually approved.
+This document is the evolving, project-wide foundation for Home Agent's design. It describes the design direction and implementation plan for [M2a](./Milestones.md#m2a---mobile-first-product-design); M2a implemented it and the user accepted it on real devices on 2026-11-24; later milestones extend it.
 
 New features should fit this shared product language. As requirements or insights change, evolve the concept deliberately rather than creating different visual styles for individual pages. Specific values are starting points to be verified during implementation against contrast, devices, and actual behavior.
+
+M2a status: complete. The foundation, shell, Home dashboard, scene shortcuts, Assistant, onboarding, and Settings use this design system, no primary view keeps the earlier light style, the voice screen is specified, and the design was validated by automated checks and accepted by the user on real devices; see [Milestones.md](./Milestones.md#m2a---mobile-first-product-design). Decisions taken during implementation are recorded under [Resolved Design Decisions](#resolved-design-decisions).
 
 The working application is the foundation, not a throwaway prototype. Preserve its architecture, data flows, security, and core functionality. This document does not authorize implementation: the immersive voice screen is a concept here; actual voice functionality belongs to M3.
 
@@ -41,13 +43,15 @@ Home Agent should feel like a calm, intelligent center for the home: modern, ele
 6. **Trust through clarity:** Read-only information and changes are explicitly distinguishable. Progress, errors, and unknown outcomes are not presented as success. The interface never shows a control, state, or claim the product cannot back up.
 7. **Accessibility is part of the aesthetic:** Visible focus states, contrast, readable type, adequate touch targets, and reduced motion are essential properties.
 
-## Current State
+## Starting Point Before M2a
+
+This section records the state M2a started from; it no longer describes the current interface.
 
 This assessment is based on code analysis, not a new visual inspection on real devices:
 
 - The [home page](./src/routes/+page.svelte) shows chat and the home overview side by side on large screens; on mobile they are stacked, and chat receives `75dvh`. Many rooms create a long page flow. There is no navigation bar; Settings is a text link.
 - [ChatPanel](./src/lib/components/ChatPanel.svelte) provides sessions, input, streaming, tool calls, and confirmations. It cancels in-progress work when it is unmounted. [MarkdownMessage](./src/lib/components/MarkdownMessage.svelte) renders Markdown safely; user messages remain plain text.
-- [HomeOverview](./src/lib/components/HomeOverview.svelte) lists rooms and entities from one fetch, with manual refresh, collapsible rooms, favorite prioritization, and a timestamp. Entities carry a name, domain, state, areas, and attributes such as `current_temperature`; there are no entity IDs.
+- `HomeOverview` (now [RoomList](./src/lib/components/RoomList.svelte), with fetching moved to [HomeView](./src/lib/components/HomeView.svelte)) lists rooms and entities from one fetch, with manual refresh, collapsible rooms, favorite prioritization, and a timestamp. Entities carry a name, domain, state, areas, and attributes such as `current_temperature`; there are no entity IDs.
 - All device changes run through the chat endpoint with server-side policy and approval. There is no endpoint for direct device actions outside the conversation.
 - Onboarding and Settings share [SettingsForm](./src/lib/components/SettingsForm.svelte). The many technical fields are presented in sequence with largely equal emphasis. There is no setting for the user's name.
 - [ToolCallCard](./src/lib/components/ToolCallCard.svelte) already distinguishes read and change calls and their execution states.
@@ -127,6 +131,7 @@ Secondary information remains readable and is not pushed into the background sol
 - Radii: about 12 px for inputs and icon wells, 16 px for tiles and small cards, 20 to 24 px for wide cards and panels, 28 px for the top corners of the navigation bar, and fully rounded switches and pills.
 - An **icon well** is a rounded-square, tinted container of at least 40 px that holds a domain icon, as on the reference Lights and Climate cards.
 - Interactive elements are at least 44 by 44 CSS px, even where the reference draws them smaller.
+- Scrollbars are slim (6 px, `scrollbar-width: thin`), with a transparent track and a translucent violet thumb (`accent-ink` at 35 %, 55 % on hover), defined globally in `layout.css`.
 
 ### Iconography
 
@@ -135,6 +140,7 @@ Use one outline icon set with rounded caps and a consistent stroke of about 1.75
 - Domain icons carry an accent color: amber for lights, cyan for climate, violet for scenes and night.
 - Navigation icons are neutral; the active destination uses a filled icon, the accent color, its label, and an underline indicator.
 - Colored icons reinforce meaning. Every icon that conveys status or triggers an action has a text label or an accessible name.
+- **App icon:** the orb, simplified for small sizes (three outlines, six nodes, brighter sphere) so that it stays recognizable at 16 px. `static/favicon.svg` is the source; `favicon.ico` (32 px) and `apple-touch-icon.png` (180 px, on the app background because iOS fills transparency with black) are rendered from it. `theme-color` is the app background `#0b142d`. When the orb changes, update the favicon too.
 
 ### Motion
 
@@ -144,7 +150,7 @@ Transitions support orientation and feedback: about 150 to 250 ms for state chan
 
 The orb is a sphere of connected points of light, cyan-white at its points and blue to violet at its rim, with a soft outer glow. It is the product's signature and stands for the assistant.
 
-- **Where it appears:** small in the assistant entry card on Home, medium as the docked center button of the navigation, small in the Assistant header, and large as the focus of the future voice mode.
+- **Where it appears:** small in the assistant entry card on Home, medium as the docked center button of the mobile navigation, prominent in the empty desktop Assistant, compact in the Assistant header during a conversation, and large as the focus of the future voice mode.
 - **One component:** a reusable `AssistantOrb` with size and state properties. Generate it in code, for example by distributing points on a sphere, projecting them, and connecting near neighbors, rendered as SVG or canvas. Do not trace or embed the reference image.
 - **Hierarchy:** at most one orb is animated per view. On Home, the navigation orb is the live one; the orb in the entry card is a static illustration.
 - **States:** idle is a slow rotation or gentle breathing. Voice states in M3 build on the same component. With reduced motion it is a static render.
@@ -157,9 +163,9 @@ The orb is a sphere of connected points of light, cyan-white at its points and b
 
 The product has three destinations: **Home** (start), **Assistant**, and **Settings**.
 
-On mobile, a bottom navigation bar shows Home on the left and Settings on the right. The orb sits in the center, raised above the bar, which curves around it. The bar respects the bottom safe area and uses backdrop blur over scrolling content.
+On mobile, a bottom navigation bar shows Home on the left and Settings on the right, as icons without labels; each has an accessible name and a pressed or current state. The orb sits in the center, raised above the bar, which curves around it. The bar respects the bottom safe area and uses backdrop blur over scrolling content.
 
-Assistant opens from the orb and from the entry card on Home. It is a full-height view without the bottom bar, with a clear way back to Home, so that the composer has room and nothing competes with the conversation. Voice mode in M3 uses the same pattern.
+Assistant opens from the orb and from the entry card on Home. On mobile it fills the screen, the page header shrinks to a small Home icon overlay, and the navigation bar stays so that Home is one tap away. The voice stage in M3 is different: it is an immersive full-screen mode without the bar; see [Future Voice Mode](#future-voice-mode).
 
 Switching between Home and Assistant must not lose or restart an active response, the current conversation, or a pending approval. ChatPanel currently cancels in-progress work when it is unmounted, so the shell has to keep the conversation alive across these two views, for example by keeping it mounted or by moving its lifecycle into the shell. Decide the technical shape, route or in-page view, in the shell slice. Navigating to Settings keeps today's behavior unless it is changed deliberately.
 
@@ -191,7 +197,9 @@ Direct switches and one-tap actions outside the conversation, including the Ligh
 
 ### Assistant
 
-The conversation is the visual priority: glass message surfaces for the assistant, accent-tinted bubbles for the user, and a composer docked above the keyboard and the bottom safe area. The header shows a small orb, the conversation selector, and "New chat". Empty, waiting, streaming, interrupted, and error states have clear labels.
+The conversation is the visual priority: glass message surfaces for the assistant, accent-tinted bubbles for the user, and a composer docked above the keyboard and the bottom safe area. The composer is a single field with Send and Stop as round, icon-only 40 px buttons inside it, at the bottom right, with the accessible names "Send" and "Stop"; the field grows with its text up to about 160 px. On mobile, the Assistant uses the full screen width without a card border, and the page header shrinks to a transparent Home icon overlay so that messages get the space. The header shows a small orb (tablet and desktop), the conversation selector, and "New chat". Empty, waiting, streaming, interrupted, and error states have clear labels.
+
+On desktop, the empty conversation gives the orb a prominent central position in the Assistant panel, alongside the existing suggestions. Once a conversation contains messages, the orb remains visible in a compact header so that messages, tool activity, confirmations, and the composer have priority. Switching between these presentations must not create a new chat or interrupt the current one. The orb must not imply voice, listening, or activity that is not actually available.
 
 Markdown remains safely processed. Tables and long code blocks scroll horizontally within their own area and never displace the composer. Preserve saved conversations, session switching, cancellation, and warnings about unknown action outcomes.
 
@@ -209,11 +217,13 @@ The header button on Home is the place for things that need attention. In M2a it
 
 Both share form language and behavior. Sections are glass cards; inputs use the solid surface. Onboarding leads with connection and safety, followed by preferences; technical details remain accessible without giving all information equal emphasis. A step-by-step presentation is appropriate only if all existing options, validations, and a clear way back are preserved.
 
+**Minimal by default (user requirement):** getting started must feel effortless. The form shows one "Connect your home" section with only three fields, the server address, the access token, and the OpenAI API key, plus "Test connection" and a one-line summary of the active confirmation rule, so safety stays visible. Everything else sits in a collapsed "Advanced settings" disclosure in this order: Profile, confirmations, voice and models, favorites and history, connection details (transport, display name, authentication), and the optional Home Assistant WebSocket settings. A validation error inside the collapsed section opens it and focuses the field. New setups default to bearer authentication, because the Home Assistant MCP integration requires a long-lived access token. On the Settings page, stored credentials, history deletion, and reset sit in a collapsed "Data and privacy" disclosure. The Browser Storage notice stays visible, in short form. New options go into Advanced settings unless every user needs them to start.
+
 Settings groups connection, models and voice, confirmations, favorites, history, and a profile section with the optional display name. The name is stored with the browser settings and used only for the greeting. Browser Storage and credential notices, connection testing, field errors, and storage status remain visible. Delete and reset actions are spatially and verbally distinct from ordinary settings and keep their explicit confirmation.
 
 ### Tablet and Desktop
 
-Home and Assistant sit side by side, each scrolling independently, with the composer always visible; the existing viewport-bound behavior with `min-h-0` is preserved. Because Assistant is always visible, shortcuts act on it in place. Navigation moves from the bottom bar to a slim rail or header, and the orb moves into the Assistant header. Onboarding and Settings use a limited reading width.
+Home and Assistant sit side by side, each scrolling independently, with the composer always visible; the existing viewport-bound behavior with `min-h-0` is preserved. Because Assistant is always visible, shortcuts act on it in place. Navigation moves from the bottom bar to a slim rail or header. The Assistant's empty-state orb is a central visual focus; during a conversation it becomes a compact header presence. Onboarding and Settings use a limited reading width.
 
 ## Reference to Product Mapping
 
@@ -234,28 +244,121 @@ Home and Assistant sit side by side, each scrolling independently, with the comp
 
 ## Future Voice Mode
 
-Voice should feel **present and focused**, as if the assistant is attentive in the room, without pretending to be human or implying unwarranted safety.
+Voice should feel **present and focused**, as if the assistant is attentive in the room, without pretending to be human or implying unwarranted safety. It is a mode of the Assistant, not a separate app: text and voice share one conversation, one confirmation path, and one visual language, with a visible switch between them.
+
+This section is a specification. Actual voice (WebRTC, GPT-Live, delegation) is implemented in M3; nothing here may appear in the product before it works.
+
+### Reference Input
+
+The user supplied an external UX workspace with a clickable voice simulation and two reference images. Its findings are adopted where they fit the product; the workspace itself is a design tool and may disappear, so the decisions are recorded here.
+
+- **The simulation:** a centered card with an eyebrow, the title "Home Agent Live", a large orb, a status word, two equal buttons (mute, end), a text link back to the text assistant, and a close button. It has seven states: ready, connecting, listening, responding, muted, approval, and error. The approval state shows a solid card with the action, its scope, and two buttons below the orb. A first screen lets the user pick a voice before the simulation starts. A state selector, which is a prototyping aid, drives everything, and the microphone is never used.
+- **The orb reference:** a blue wireframe sphere of connected nodes. It confirms the direction in [The Orb](#the-orb): a sphere of points and neighbor links, generated in code.
+- **The chat reference:** a large rounded composer with an icon-only circular send button, a soft colored glow along its bottom edge, message bubbles of graded dark surfaces, and small action chips (Copy, Edit) under messages. The composer and icon-only send button already match; the other two ideas are listed under [Open Design Questions](#open-design-questions).
+- **The workspace roadmap:** acceptance for the voice step requires that states are understandable and that focus returns to the trigger on close; acceptance for M3 requires permission, cancellation, reconnection, and server-validated device confirmation to be tested with mocks. Both are reflected below and in M3.
+
+| Prototype                                               | Product decision                                                                                                                            | Why                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Eyebrow "SIMULATION · VOICE"                            | "Live conversation"                                                                                                                         | The product is not a simulation.                                                             |
+| "Muted" is a state and also the name of the mute button | Mute is a property of the microphone, shown by an always-visible indicator; the button reads "Turn microphone off" and "Turn microphone on" | The assistant can speak while muted; a name that is both a state and an action is ambiguous. |
+| Listening and responding pulse identically              | Distinct motion for listening, speaking, and thinking; amplitude only from real audio levels                                                | The motion must tell the states apart and must never fake audio.                             |
+| No thinking or tool state                               | Added: thinking and delegation, tool use                                                                                                    | GPT-Live delegates work to a backend model that uses tools.                                  |
+| Three exits (close, end, back to text)                  | Two: End and Back to text                                                                                                                   | Fewer, clearer choices.                                                                      |
+| Voice picker before the simulation                      | The voice stays in Settings under Advanced; first use shows the current voice and a link to change it                                       | Starting must need as few decisions as possible.                                             |
+| Modal card on every screen size                         | Full screen on mobile; centered panel over the dimmed app on larger screens                                                                 | Immersion on small screens, orientation on large ones.                                       |
+| Same orb brightness when muted                          | Muted dims and desaturates the orb and marks it with a slashed microphone                                                                   | Mute must be visible at a glance.                                                            |
+
+### Entry, First Use, and Exit
+
+- **Entry points:** the navigation orb (which shows a microphone once voice works), the voice offer in the Home entry card, and a Text/Voice switch in the Assistant header. All of them open the same stage.
+- **First use:** if the microphone permission is not granted, or no OpenAI key is available, the stage opens on a single setup screen instead of connecting. It states in two sentences what happens (audio goes to the model provider through this application's server, only while the stage is open, and transcripts are not stored unless the user enabled it), shows the current voice with a link to Advanced settings, and offers one primary button, "Allow microphone". The browser prompt is triggered by that button, as browsers require. Once permission exists, tapping the orb connects immediately.
+- **Permission denied:** the stage shows "Microphone blocked", a short note on how to allow it in the browser, and "Back to text". Text chat stays fully usable.
+- **End:** stops the session and releases the microphone, and the stage stays open in the Ready state so that one tap starts again.
+- **Back to text:** leaves the stage. A running session ends first. Escape does the same. A pending confirmation is cancelled and marked as interrupted, exactly like the existing text behavior when the conversation is left.
+- **Focus:** opening the stage moves focus to the primary control of the current state; closing it returns focus to the element that opened it, or to the Assistant heading if that element no longer exists.
+- **Microphone lifetime:** the microphone is captured only while a session runs. Closing the stage, ending the session, and navigating away release it. Whether a session continues when the tab is hidden is an open decision.
 
 ### Layout
 
-- Entering voice mode, the orb grows from its navigation position to the center of the screen while cards and the bar fade out.
-- Top: connection and microphone status and a way to leave.
-- Center: the large orb on the calm background. It never dominates a warning.
-- Bottom: microphone control, text fallback, and relevant actions. Tool activity and confirmations appear on a solid, clearly bounded surface.
-- Live captions of what is heard and said appear below the orb and can be hidden. They are the text equivalent of the conversation and are not stored unless transcript retention is enabled.
+Mobile is full screen, respects the top and bottom safe areas, and hides the navigation bar. Tablet and desktop use a centered panel of about 560 px over the dimmed app; the app behind it stays mounted but inert, and the panel is a modal dialog with a focus trap. The content is one column on every size, top to bottom:
+
+1. **Header:** the eyebrow "Live conversation", the title "Home Agent", and a microphone chip that always states whether the microphone is on or off. Next to them sits the Back to text control, at least 44 by 44 px.
+2. **Orb:** the focus. About 60 % of the width on mobile, between 180 and 320 px; on viewports shorter than 600 px it shrinks to 140 px. While a confirmation is open it recedes to about 96 px.
+3. **Status:** one word in 19 to 20 px semibold in the primary text color, in a polite live region, with one line of secondary text below it. The color is the same in every state, so the state is always carried by the word.
+4. **Captions:** the last heard and last spoken sentences, up to three lines on mobile and more on desktop, with a Hide captions control. Captions are not announced by screen readers, to avoid speaking over the assistant.
+5. **Activity strip:** shown during delegation and tool use, in the vocabulary of the tool card: "Read" or "Change", the target, and progress.
+6. **Confirmation card:** on the solid surface, between the orb and the controls, only while a confirmation is pending.
+7. **Controls:** in the lower, thumb-reachable area, two equal-width buttons with icon and label, "Turn microphone off/on" and "End", each at least 44 px high. "Back to text" sits below them as a text button.
+
+In landscape on a phone (width greater than height and height below 500 px) the orb moves to the left and the status, captions, and controls to the right.
 
 ### States and Transitions
 
-| State                 | Visual direction                                                      | Clear feedback                                |
-| --------------------- | --------------------------------------------------------------------- | --------------------------------------------- |
-| Ready / listening     | Calm orb, subtle motion                                               | Microphone and listening status in text       |
-| Speaking              | Gentle speech-reactive motion, only when real audio data is available | Assistant is speaking                         |
-| Thinking / delegation | Slow, restrained motion                                               | Task is being processed                       |
-| Tool use              | Compact activity strip                                                | Read or change call and progress              |
-| Confirmation          | Orb recedes; the card takes priority                                  | Action, targets, Approve and Deny             |
-| Error / disconnection | Calm state without a misleading activity glow                         | Cause where known, reconnect or text fallback |
+The status word shows the dominant conversation state. The microphone chip and the orb treatment show the microphone separately, so "Speaking" and "Microphone off" can be true at once. Full duplex permits listening, speaking, and delegated work to overlap: when they do, the status shows the highest of the priority order below and the others appear as chips (for example "Working on it" while the assistant speaks).
 
-Full duplex permits overlapping states: listening, speaking, and delegated backend work must not be modeled as mutually exclusive. Microphone status must match the actual permission state. With reduced motion the orb is static and states are conveyed in text. No animation simulates unavailable audio or connection data.
+Priority: Error, Confirmation, Speaking, Thinking, Listening, Connecting, Ready.
+
+| State                 | Real signal                                                 | Orb                                                                               | Status and detail                                              | Controls                                   |
+| --------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ |
+| Ready                 | No session                                                  | Static, dimmed                                                                    | "Ready"                                                        | Start conversation (primary), Back to text |
+| Needs microphone      | Permission not granted or an unanswered prompt              | Static, dimmed                                                                    | "Microphone access needed"                                     | Allow microphone (primary), Back to text   |
+| Connecting            | Session creation and WebRTC negotiation in progress         | Slow indeterminate shimmer                                                        | "Connecting…"; after 15 s becomes Error                        | End                                        |
+| Listening             | Connected and the microphone is on                          | Slow, fixed-rate breathing; amplitude follows the real input level when available | "Listening"                                                    | Turn microphone off, End                   |
+| Speaking              | Assistant audio is playing                                  | Motion follows the real output level; static breathing if no level is available   | "Speaking"                                                     | Turn microphone off, End                   |
+| Thinking / delegation | A delegated backend task is running                         | Slow rotation, restrained                                                         | "Working on it…"; chip stays while the assistant speaks        | Turn microphone off, End                   |
+| Tool use              | A tool call is running                                      | As in the state beneath it                                                        | Activity strip: Read or Change, target, progress               | Unchanged                                  |
+| Confirmation          | The server issued an approval request                       | Recedes and dims                                                                  | "Waiting for your confirmation" and the card                   | Approve, Deny (card); End                  |
+| Microphone off        | The audio track is disabled                                 | Dimmed, desaturated, slashed microphone mark                                      | Chip "Microphone off"; the status keeps the conversation state | Turn microphone on, End                    |
+| Error / disconnected  | Connection lost, session expired, or microphone unavailable | Static, no glow                                                                   | "Connection lost" or the specific cause, one line              | Try again (primary), Back to text          |
+
+Transitions:
+
+- Opening: the stage fades in over about 200 ms and the orb scales from its origin (the navigation orb or the Assistant orb) to its stage position. With reduced motion it appears without movement.
+- Connecting to Listening: the shimmer settles into breathing over about 400 ms.
+- Confirmation: the orb recedes over about 250 ms while the card fades in; it returns when the decision is made.
+- Error: the glow fades out; nothing pulses.
+
+Rules:
+
+- **Muting must mute.** The button disables the outgoing audio track, not just the visuals, and a test proves it.
+- **No retry loops.** After a lost connection the product makes at most one automatic attempt, then shows Error with "Try again".
+- **No faked signals.** The breathing means "connected and attentive", never "sound detected". Amplitude-driven motion exists only when real level data does.
+
+### Confirmation in Voice
+
+The assistant may announce that it needs a confirmation, but speaking "yes" does not approve anything; approval requires the on-screen buttons until the product decides otherwise (see M3).
+
+- The card shows the question in plain words ("Turn on the living-room light?"), the Read or Change label, the targets and, for group actions, the number of affected devices, then **Approve** (primary) and **Deny** (secondary), each at least 44 px high.
+- When the card appears, a polite announcement states the action, and focus moves to the card itself, which has an accessible name. Neither button is focused, so a stray Enter or Space cannot approve.
+- The live model is instructed to say that a confirmation is waiting on screen.
+- Approving, denying, ending the session, and leaving the stage all resolve the card; none of them leaves a stale confirmation behind.
+
+### Orb Rendering for M3
+
+`AssistantOrb` gains a `state` (`idle`, `connecting`, `listening`, `speaking`, `thinking`, `confirming`, `error`), a `muted` flag, and an optional `level` from 0 to 1. The static SVG remains the fallback.
+
+- Generate points on a sphere (for example a Fibonacci distribution), project them with a light perspective, connect near neighbors, and draw on a canvas with the device pixel ratio capped at 2.
+- Rotate slowly; displace points radially by `level` only when real data is passed in.
+- Pause drawing when the tab is hidden; keep the frame cost low enough for a mid-range phone; fall back to the static SVG under `prefers-reduced-motion` or without canvas support.
+- Colors stay as in [The Orb](#the-orb): cyan-white points and a blue to violet rim. Error draws no glow, and muted draws desaturated and dim.
+
+### Captions and Transcripts
+
+- Captions show the latest turns and can be hidden. They are the text equivalent of the conversation.
+- Nothing is stored unless the user enabled transcript retention in Settings. Audio is never stored.
+- Proposed, pending the user's decision: when retention is on, voice turns are added as text messages to the current chat session, so they appear in the Assistant and are removed by the existing "Clear chat history". When it is off, captions vanish with the stage.
+
+### Accessibility
+
+- The stage is a dialog with an accessible name, a focus trap, and inert content behind it; Escape leaves it.
+- Every state has a text equivalent, and no state relies on color, position, or motion alone. The microphone chip makes the microphone state readable without sight.
+- Touch targets are at least 44 by 44 px; the controls sit in the thumb zone; safe areas, the on-screen keyboard (not needed here), and landscape are handled.
+- Reduced motion removes all orb animation; status text and chips carry the information.
+- The product plays no interface sounds in M3.
+
+### Prototyping Aid
+
+A state gallery that renders the stage in every state from fixed data helps review and test the design before audio exists. It may be built as a development-only route that is excluded from production builds. It must never be reachable by users, and nothing in it may suggest that voice works.
 
 ## Technical Direction
 
@@ -287,9 +390,10 @@ Later milestones add capabilities to the views that M2a designs. They extend the
 
 ### M3: Voice
 
-- Voice mode implements [Future Voice Mode](#future-voice-mode) inside the Assistant view; text and voice are two modes of one assistant with a visible switch between them.
+- Voice mode implements [Future Voice Mode](#future-voice-mode), which is the complete specification of the stage, its states, first use, confirmations, captions, rendering, and accessibility. Text and voice are two modes of one assistant with a visible switch between them.
 - When voice works, the navigation orb shows the microphone, the hint reads as in the reference, and the Home entry card offers voice.
 - Confirmations in voice mode use the same solid confirmation card as text. Until the product decides otherwise, approval requires the on-screen control.
+- Build the presentational stage and the orb states first, from fixed data, and review every state before audio is connected.
 
 ### M4: Live Data and Direct Control
 
@@ -305,16 +409,35 @@ Later milestones add capabilities to the views that M2a designs. They extend the
 - When secrets move to the server, credential fields and the Browser Storage notices in onboarding and Settings change accordingly.
 - The application loads its font and icons from its own origin, so a strict Content Security Policy remains possible.
 
+## Resolved Design Decisions
+
+These questions were open in the plan and were decided during M2a implementation:
+
+- **Font:** Plus Jakarta Sans, self-hosted through `@fontsource-variable/plus-jakarta-sans` with a system sans-serif fallback.
+- **Icons:** Lucide (`@lucide/svelte`) covers every icon so far, imported individually. `DomainIcon` maps domains to an icon and accent color; unknown domains use a neutral power icon.
+- **Scene icons:** fetched scenes carry only a name, so every scene tile uses the same scene icon. Per-scene icons would need data the product does not have.
+- **Climate summary:** one reading shows its value and area; several readings show the range and the number of devices. Climate devices without `current_temperature` are counted but never shown as a value.
+- **Activity indicator:** not shipped in M2a. The header has no activity button rather than a decorative one; Home's scene hint and the disabled tiles already say when a confirmation is pending. The Activity view arrives with M4.
+- **Assistant placement:** an in-page view on `/`, not a route. Home and Assistant both stay mounted and the inactive one is hidden on mobile, because unmounting `ChatPanel` cancels running work.
+- **Hint line and "See all":** the label "Assistant" under the navigation orb replaces the reference's separate hint line, and the scene row scrolls horizontally on mobile and wraps on desktop instead of linking to a "See all" page.
+- **Summary cards:** the chevron on Lights and Climate filters Rooms to that domain, with a visible "Showing … only" status and a "Show all devices" control.
+- **Shortcut gating:** shortcuts are disabled while a session switch, a response, or a pending confirmation is in progress, and the reason is shown under the Scenes heading. Typed messages keep their previous behavior.
+- **Danger zone:** delete and reset actions sit in a separate "Delete and reset" section, inside the collapsed "Data and privacy" disclosure and outlined in the danger color at rest; only the explicit confirmation step uses a filled destructive button.
+- **Focus after view changes:** a control that hides its own view would drop focus to the page body. Opening the Assistant from the Home entry card moves focus to the composer; a scene shortcut moves it to the Assistant view, a programmatic-only focus target without a ring, so that screen readers continue in the conversation where the confirmation appears.
+- **Long words and large text:** the shell sets `overflow-wrap: anywhere` and fieldsets may shrink, so long names, addresses, and words wrap instead of forcing horizontal scrolling. Rows of buttons and the chat header wrap when text is enlarged.
+- **Form fields:** every `field` is at least 44 px high. In the composer, the textarea fills the whole 52 px field, so the entire field is the touch target, and the field draws the same 3 px focus ring as every other control.
+- **Touch-target exception:** the composer's Send and Stop buttons stay at 40 px by the user's request. They sit inside a 52 px field with 6 px of space around them and exceed the WCAG 2.2 AA minimum of 24 px.
+
 ## Open Design Questions
 
-Resolve these during implementation and record the outcome here:
+These stay open until the user decides or the M3 work shows the answer:
 
-- which of the candidate fonts is used;
-- whether Lucide covers all required icons;
-- how scene tiles get an icon, since fetched scenes carry only a name;
-- which climate device the summary shows when several exist;
-- whether the activity indicator ships in M2a;
-- whether Assistant is a route or an in-page view.
+- **Voice transcripts:** when retention is enabled, should voice turns be added as text messages to the current chat session (the proposal in [Captions and Transcripts](#captions-and-transcripts)), or kept separately?
+- **Spoken approval:** may a spoken confirmation ever approve an action? Until decided, approval requires the on-screen control.
+- **Hidden tab:** should a running voice session end when the tab has been hidden for a while (for example 60 seconds), or continue?
+- **Voice samples:** should Settings offer a short sample of each voice? It needs an audio sample per voice and may cost provider usage.
+- **Composer glow:** the chat reference has a soft colored glow along the composer's bottom edge. It could replace the plain focus treatment as the view's one selection glow, provided the focus outline stays visible.
+- **Message actions:** small chips under messages (for example Copy) as in the chat reference; a candidate after M2a.
 
 ## Quality and Acceptance Criteria
 
@@ -326,3 +449,21 @@ Resolve these during implementation and record the outcome here:
 - Account for reduced motion, loading and error states, the on-screen keyboard, and safe areas. Check scrolling and animation smoothness on a mid-range phone.
 - Test existing chat, history, settings, and approval workflows with mocks, and verify that shortcuts go through the confirmation flow. Do not run real smart-home actions in automated tests.
 - Visual acceptance covers coherent views and states, not just isolated components.
+
+### Verification Status
+
+The criteria above are checked by `e2e/design-acceptance.test.ts`, which runs against mocked services in the regular `npm run test:e2e` run.
+
+| Criterion                          | How it is checked                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layout from 320 px to wide desktop | Ten viewports, including a small phone, a phone with the on-screen keyboard (short viewport), landscape, 200% zoom of a laptop (640 by 360), tablet, and 1920 by 1080: no horizontal scrolling on Home, Assistant, and Settings, and the composer sits above the navigation bar                                                                                                                                                                                                                |
+| 200% text size                     | Root font size doubled on Home, Assistant, and onboarding: no horizontal scrolling and the composer stays reachable                                                                                                                                                                                                                                                                                                                                                                            |
+| Touch targets                      | Every visible interactive element is at least 44 by 44 px, except the documented 40 px Send and Stop buttons and inline links in a sentence                                                                                                                                                                                                                                                                                                                                                    |
+| Contrast                           | Rendered measurement: all text is made transparent, a screenshot captures the real background under each text box (gradients, glass, blur), and the worst sampled pixel is compared with the text color; AA thresholds of 4.5:1, and 3:1 for large text. Run on Home (also scrolled, expanded, and filtered), the empty Assistant, the Assistant with a pending confirmation, Settings (including every disclosure and the reset confirmation), and onboarding with errors, at 390 and 1280 px |
+| Automated accessibility            | Axe with the WCAG 2.0, 2.1, and 2.2 A and AA rules on the same pages and states: no violations                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Keyboard                           | Every tab stop shows a solid outline of at least 2 px in the accent color, inside the viewport; the accent color against the brightest background light field is above 3:1; disclosures open with Enter and Space; focus is not lost when a control hides its own view                                                                                                                                                                                                                         |
+| Reduced motion                     | No CSS animation runs on Home or in the Assistant with `prefers-reduced-motion`, and the orb does animate without it                                                                                                                                                                                                                                                                                                                                                                           |
+
+The checks are known to fail when something regresses: replacing the secondary text color with a weak gray makes both the Axe audit and the rendered contrast measurement fail.
+
+Not covered by automation, and therefore checked by the user on real devices (accepted on 2026-11-24): real iOS Safari and Android Chrome behavior with the on-screen keyboard and safe areas (the keyboard is emulated by a short viewport), a pass with a real screen reader (VoiceOver, TalkBack, or NVDA), and scrolling and animation smoothness on a mid-range phone.

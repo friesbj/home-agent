@@ -9,7 +9,8 @@
 </script>
 
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import { ChevronDown, ShieldCheck, TriangleAlert } from '@lucide/svelte';
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { discoverTools } from '$lib/home/api';
 	import { validateMcpUrl, type McpUrlPolicy } from '$lib/config/mcp-url';
@@ -64,6 +65,19 @@
 	let errors = $state<Record<string, string>>({});
 	let testing = $state(false);
 	let testResult = $state<{ ok: boolean; message: string } | null>(null);
+	let advancedOpen = $state(false);
+
+	/** Fields shown outside Advanced settings; errors elsewhere open that section. */
+	const ESSENTIAL_FIELDS = new Set(['mcp-url', 'mcp-token', 'openai-key']);
+
+	const safetySummary = $derived(
+		{
+			all: 'Every change to your home asks for your confirmation first.',
+			'high-risk': 'Locks, alarms, garage doors, and irrigation ask for your confirmation first.',
+			custom: 'Changes to selected device types ask for your confirmation first.',
+			none: 'Changes run without asking for confirmation.'
+		}[policy.mode]
+	);
 
 	async function testConnection() {
 		const mcp = validateMcpUrl(draft.mcp.url, mcpUrlPolicy);
@@ -150,7 +164,8 @@
 		}
 
 		if (draft.mcp.authType === 'bearer' && secretRequired('mcpToken')) {
-			next['mcp-token'] = 'Enter the MCP bearer token or choose no authentication.';
+			next['mcp-token'] =
+				'Enter the access token, or choose no authentication under Advanced settings.';
 		}
 		if (!serverHasOpenAiKey && secretRequired('openaiApiKey')) {
 			next['openai-key'] = 'An OpenAI API key is required because the server has none configured.';
@@ -183,7 +198,9 @@
 								? 'text-model'
 								: key.startsWith('favorites')
 									? 'areas'
-									: 'form';
+									: key.startsWith('profile')
+										? 'display-name'
+										: 'form';
 				next[field] ??= issue.message;
 			}
 		}
@@ -202,13 +219,16 @@
 		return { settings: parsedSettings.data, confirmation: parsedPolicy.data, secrets };
 	}
 
-	function handleSubmit(event: SubmitEvent) {
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
+		const form = event.currentTarget as HTMLFormElement;
 		const result = validate();
 		if (!result) {
-			const firstInvalid = (event.currentTarget as HTMLFormElement).querySelector<HTMLElement>(
-				'[aria-invalid="true"]'
-			);
+			if (Object.keys(errors).some((field) => !ESSENTIAL_FIELDS.has(field))) {
+				advancedOpen = true;
+				await tick();
+			}
+			const firstInvalid = form.querySelector<HTMLElement>('[aria-invalid="true"]');
 			firstInvalid?.focus();
 			return;
 		}
@@ -219,17 +239,15 @@
 
 {#snippet fieldError(id: string)}
 	{#if errors[id]}
-		<p id="{id}-error" class="mt-1 text-sm text-red-700">{errors[id]}</p>
+		<p id="{id}-error" class="mt-1 text-sm text-danger">{errors[id]}</p>
 	{/if}
 {/snippet}
 
-{#snippet secretField(name: SecretName, id: string, hint: string)}
+{#snippet secretField(name: SecretName, id: string, hint: string, label = SECRET_LABELS[name])}
 	<div>
-		<label for={id} class="block text-sm font-medium text-stone-800">{SECRET_LABELS[name]}</label>
-		<p id="{id}-status" class="text-sm text-stone-600">
-			{secretStatus[name] === 'stored'
-				? 'Stored in this browser. Leave empty to keep it.'
-				: 'Not stored.'}
+		<label for={id} class="block text-sm font-medium text-ink">{label}</label>
+		<p id="{id}-status" class="text-sm text-ink-muted">
+			{secretStatus[name] === 'stored' ? 'Stored in this browser. Leave empty to keep it.' : ''}
 			{hint}
 		</p>
 		<input
@@ -237,7 +255,7 @@
 			type="password"
 			autocomplete="off"
 			spellcheck="false"
-			class="mt-1 w-full rounded-md border-stone-300"
+			class="mt-1 w-full field"
 			bind:value={secretInputs[name]}
 			aria-invalid={errors[id] ? 'true' : undefined}
 			aria-describedby="{id}-status {errors[id] ? `${id}-error` : ''}"
@@ -246,11 +264,11 @@
 	</div>
 {/snippet}
 
-<form class="space-y-8" onsubmit={handleSubmit} novalidate>
-	<fieldset class="space-y-4">
-		<legend class="text-lg font-semibold text-stone-900">MCP server</legend>
+<form class="space-y-6" onsubmit={handleSubmit} novalidate>
+	<fieldset class="form-section space-y-5">
+		<legend>Connect your home</legend>
 		<div>
-			<label for="mcp-url" class="block text-sm font-medium text-stone-800">
+			<label for="mcp-url" class="block text-sm font-medium text-ink">
 				Server address <span aria-hidden="true">*</span>
 			</label>
 			<input
@@ -258,283 +276,318 @@
 				type="url"
 				required
 				inputmode="url"
-				placeholder="https://mcp.example.com/mcp"
-				class="mt-1 w-full rounded-md border-stone-300"
+				placeholder="https://homeassistant.local:8123/api/mcp"
+				class="mt-1 w-full field"
 				bind:value={draft.mcp.url}
 				aria-invalid={errors['mcp-url'] ? 'true' : undefined}
 				aria-describedby="mcp-url-hint {errors['mcp-url'] ? 'mcp-url-error' : ''}"
 			/>
-			<p id="mcp-url-hint" class="mt-1 text-sm text-stone-600">
-				{mcpUrlPolicy.allowInsecureHttp ? 'http:// and https://' : 'Only https://'} addresses;
-				{mcpUrlPolicy.allowPrivateHosts
-					? 'local network addresses are allowed.'
-					: 'local network addresses are blocked by this deployment.'}
+			<p id="mcp-url-hint" class="mt-1 text-sm text-ink-muted">
+				The Model Context Protocol address of your Home Assistant, usually ending in /api/mcp.
+				{mcpUrlPolicy.allowInsecureHttp ? '' : 'Only https:// is allowed.'}
+				{mcpUrlPolicy.allowPrivateHosts ? '' : 'Local network addresses are blocked here.'}
 			</p>
 			{@render fieldError('mcp-url')}
-		</div>
-		<div class="grid gap-4 sm:grid-cols-2">
-			<div>
-				<label for="mcp-transport" class="block text-sm font-medium text-stone-800">Transport</label
-				>
-				<select
-					id="mcp-transport"
-					class="mt-1 w-full rounded-md border-stone-300"
-					bind:value={draft.mcp.transport}
-				>
-					<option value="streamable-http">Streamable HTTP</option>
-					<option value="sse">Server-sent events (legacy)</option>
-				</select>
-			</div>
-			<div>
-				<label for="mcp-name" class="block text-sm font-medium text-stone-800">
-					Display name (optional)
-				</label>
-				<input
-					id="mcp-name"
-					type="text"
-					maxlength="80"
-					class="mt-1 w-full rounded-md border-stone-300"
-					bind:value={draft.mcp.displayName}
-				/>
-			</div>
-		</div>
-		<div>
-			<label for="mcp-auth" class="block text-sm font-medium text-stone-800">Authentication</label>
-			<select
-				id="mcp-auth"
-				class="mt-1 w-full rounded-md border-stone-300"
-				bind:value={draft.mcp.authType}
-			>
-				<option value="none">None</option>
-				<option value="bearer">Bearer token</option>
-			</select>
 		</div>
 		{#if draft.mcp.authType === 'bearer'}
 			{@render secretField(
 				'mcpToken',
 				'mcp-token',
-				'Use a Home Assistant long-lived access token.'
+				'Create a long-lived access token in your Home Assistant profile.',
+				'Access token'
 			)}
 		{/if}
-		<div class="space-y-2">
-			<button
-				type="button"
-				class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 disabled:opacity-50"
-				onclick={testConnection}
-				disabled={testing}
-			>
-				{testing ? 'Testing…' : 'Test connection'}
-			</button>
-			<div role="status" aria-live="polite" class="text-sm">
-				{#if testResult?.ok}
-					<p class="text-emerald-800">{testResult.message}</p>
-				{:else if testResult}
-					<p class="text-red-700">{testResult.message}</p>
-				{/if}
-			</div>
-		</div>
-	</fieldset>
-
-	<fieldset class="space-y-4">
-		<legend class="text-lg font-semibold text-stone-900">OpenAI</legend>
 		{@render secretField(
 			'openaiApiKey',
 			'openai-key',
 			serverHasOpenAiKey ? 'Optional: the server has a key configured.' : 'Required.'
 		)}
-	</fieldset>
-
-	<fieldset class="space-y-4">
-		<legend class="text-lg font-semibold text-stone-900">Voice and models</legend>
-		<p class="text-sm text-stone-600">
-			Live conversation model: <span class="font-mono">{LIVE_MODEL}</span>
-		</p>
-		<div class="grid gap-4 sm:grid-cols-3">
-			<div>
-				<label for="voice" class="block text-sm font-medium text-stone-800">Voice</label>
-				<input
-					id="voice"
-					list="voice-options"
-					class="mt-1 w-full rounded-md border-stone-300"
-					bind:value={draft.models.voice}
-					aria-invalid={errors['voice'] ? 'true' : undefined}
-					aria-describedby={errors['voice'] ? 'voice-error' : undefined}
-				/>
-				{@render fieldError('voice')}
-			</div>
-			<div>
-				<label for="backend-model" class="block text-sm font-medium text-stone-800">
-					Backend reasoning model
-				</label>
-				<input
-					id="backend-model"
-					list="model-options"
-					class="mt-1 w-full rounded-md border-stone-300"
-					bind:value={draft.models.backendModel}
-					aria-invalid={errors['backend-model'] ? 'true' : undefined}
-					aria-describedby={errors['backend-model'] ? 'backend-model-error' : undefined}
-				/>
-				{@render fieldError('backend-model')}
-			</div>
-			<div>
-				<label for="text-model" class="block text-sm font-medium text-stone-800"
-					>Text chat model</label
-				>
-				<input
-					id="text-model"
-					list="model-options"
-					class="mt-1 w-full rounded-md border-stone-300"
-					bind:value={draft.models.textModel}
-					aria-invalid={errors['text-model'] ? 'true' : undefined}
-					aria-describedby={errors['text-model'] ? 'text-model-error' : undefined}
-				/>
-				{@render fieldError('text-model')}
+		<div class="space-y-2">
+			<button type="button" class="btn btn-secondary" onclick={testConnection} disabled={testing}>
+				{testing ? 'Testing…' : 'Test connection'}
+			</button>
+			<div role="status" aria-live="polite" class="text-sm">
+				{#if testResult?.ok}
+					<p class="text-success">{testResult.message}</p>
+				{:else if testResult}
+					<p class="text-danger">{testResult.message}</p>
+				{/if}
 			</div>
 		</div>
-		<datalist id="voice-options">
-			{#each VOICE_SUGGESTIONS as voice (voice)}<option value={voice}></option>{/each}
-		</datalist>
-		<datalist id="model-options">
-			{#each MODEL_SUGGESTIONS as model (model)}<option value={model}></option>{/each}
-		</datalist>
+		<p class="flex items-start gap-2 border-t border-white/10 pt-4 text-sm text-ink-muted">
+			{#if policy.mode === 'none'}
+				<TriangleAlert class="mt-0.5 shrink-0 text-warning" size={18} aria-hidden="true" />
+			{:else}
+				<ShieldCheck class="mt-0.5 shrink-0 text-success" size={18} aria-hidden="true" />
+			{/if}
+			<span>{safetySummary} You can change this under Advanced settings.</span>
+		</p>
 	</fieldset>
 
-	<fieldset
-		class="space-y-3"
-		aria-describedby={errors['confirmation'] ? 'confirmation-error' : undefined}
-	>
-		<legend class="text-lg font-semibold text-stone-900">Confirm smart-home changes</legend>
-		{#each confirmationModes as mode (mode.value)}
-			<label class="flex items-start gap-3">
-				<input
-					type="radio"
-					name="confirmation-mode"
-					value={mode.value}
-					class="mt-1"
-					bind:group={policy.mode}
-				/>
-				<span>
-					<span class="block font-medium text-stone-800">{mode.label}</span>
-					<span class="block text-sm text-stone-600">{mode.hint}</span>
-				</span>
-			</label>
-		{/each}
-		{#if policy.mode === 'custom'}
-			<div class="ml-7 grid gap-2 sm:grid-cols-2">
-				{#each CONFIRMABLE_DOMAINS as domain (domain)}
-					<label class="flex items-center gap-2 text-sm">
+	<details class="group rounded-card surface-glass" bind:open={advancedOpen}>
+		<summary
+			class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-card px-5 py-3 hover:bg-white/5 [&::-webkit-details-marker]:hidden"
+		>
+			<span>
+				<span class="block font-semibold">Advanced settings</span>
+				<span class="block text-sm text-ink-muted"
+					>Name, voice and models, confirmations, favorites, history, and connection details</span
+				>
+			</span>
+			<ChevronDown
+				class="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+				size={20}
+				aria-hidden="true"
+			/>
+		</summary>
+		<div class="space-y-6 border-t border-white/10 p-5">
+			<fieldset class="form-group space-y-4">
+				<legend>Profile</legend>
+				<div>
+					<label for="display-name" class="block text-sm font-medium text-ink">
+						Your name (optional)
+					</label>
+					<p id="display-name-hint" class="text-sm text-ink-muted">
+						Used only for the greeting on Home and stored in this browser.
+					</p>
+					<input
+						id="display-name"
+						type="text"
+						autocomplete="given-name"
+						maxlength="40"
+						class="mt-1 w-full field"
+						bind:value={draft.profile.displayName}
+						aria-invalid={errors['display-name'] ? 'true' : undefined}
+						aria-describedby="display-name-hint {errors['display-name']
+							? 'display-name-error'
+							: ''}"
+					/>
+					{@render fieldError('display-name')}
+				</div>
+			</fieldset>
+
+			<fieldset
+				class="form-group space-y-3"
+				aria-describedby={errors['confirmation'] ? 'confirmation-error' : undefined}
+			>
+				<legend>Confirm smart-home changes</legend>
+				{#each confirmationModes as mode (mode.value)}
+					<label class="flex min-h-11 items-start gap-3 py-1">
 						<input
-							type="checkbox"
-							checked={policy.domains.includes(domain)}
-							onchange={(event) =>
-								(policy.domains = toggle(policy.domains, domain, event.currentTarget.checked))}
+							type="radio"
+							name="confirmation-mode"
+							value={mode.value}
+							class="mt-1"
+							bind:group={policy.mode}
 						/>
-						{domainLabels[domain]}
+						<span>
+							<span class="block font-medium text-ink">{mode.label}</span>
+							<span class="block text-sm text-ink-muted">{mode.hint}</span>
+						</span>
 					</label>
 				{/each}
-			</div>
-		{/if}
-		{#if policy.mode === 'none'}
-			<div class="ml-7 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm" role="note">
-				<p class="font-medium text-amber-900">
-					Warning: the assistant will change devices without asking first.
+				{#if policy.mode === 'custom'}
+					<div class="ml-7 grid gap-2 sm:grid-cols-2">
+						{#each CONFIRMABLE_DOMAINS as domain (domain)}
+							<label class="flex min-h-11 items-center gap-3 text-sm">
+								<input
+									type="checkbox"
+									checked={policy.domains.includes(domain)}
+									onchange={(event) =>
+										(policy.domains = toggle(policy.domains, domain, event.currentTarget.checked))}
+								/>
+								{domainLabels[domain]}
+							</label>
+						{/each}
+					</div>
+				{/if}
+				{#if policy.mode === 'none'}
+					<div class="ml-7 notice flex-col gap-2 notice-warning" role="note">
+						<p class="font-semibold text-warning">
+							Warning: the assistant will change devices without asking first.
+						</p>
+						<label class="flex min-h-11 items-center gap-3">
+							<input type="checkbox" bind:checked={policy.acknowledgedNoConfirmationRisk} />
+							I understand and use a restricted private deployment.
+						</label>
+					</div>
+				{/if}
+				{@render fieldError('confirmation')}
+			</fieldset>
+
+			<fieldset class="form-group space-y-4">
+				<legend>Voice and models</legend>
+				<p class="text-sm text-ink-muted">
+					Live conversation model: <span class="font-mono">{LIVE_MODEL}</span>
 				</p>
-				<label class="mt-2 flex items-center gap-2">
-					<input type="checkbox" bind:checked={policy.acknowledgedNoConfirmationRisk} />
-					I understand and use a restricted private deployment.
+				<div class="grid gap-4 sm:grid-cols-3">
+					<div>
+						<label for="voice" class="block text-sm font-medium text-ink">Voice</label>
+						<input
+							id="voice"
+							list="voice-options"
+							class="mt-1 w-full field"
+							bind:value={draft.models.voice}
+							aria-invalid={errors['voice'] ? 'true' : undefined}
+							aria-describedby={errors['voice'] ? 'voice-error' : undefined}
+						/>
+						{@render fieldError('voice')}
+					</div>
+					<div>
+						<label for="backend-model" class="block text-sm font-medium text-ink">
+							Backend reasoning model
+						</label>
+						<input
+							id="backend-model"
+							list="model-options"
+							class="mt-1 w-full field"
+							bind:value={draft.models.backendModel}
+							aria-invalid={errors['backend-model'] ? 'true' : undefined}
+							aria-describedby={errors['backend-model'] ? 'backend-model-error' : undefined}
+						/>
+						{@render fieldError('backend-model')}
+					</div>
+					<div>
+						<label for="text-model" class="block text-sm font-medium text-ink"
+							>Text chat model</label
+						>
+						<input
+							id="text-model"
+							list="model-options"
+							class="mt-1 w-full field"
+							bind:value={draft.models.textModel}
+							aria-invalid={errors['text-model'] ? 'true' : undefined}
+							aria-describedby={errors['text-model'] ? 'text-model-error' : undefined}
+						/>
+						{@render fieldError('text-model')}
+					</div>
+				</div>
+				<datalist id="voice-options">
+					{#each VOICE_SUGGESTIONS as voice (voice)}<option value={voice}></option>{/each}
+				</datalist>
+				<datalist id="model-options">
+					{#each MODEL_SUGGESTIONS as model (model)}<option value={model}></option>{/each}
+				</datalist>
+			</fieldset>
+
+			<fieldset class="form-group space-y-4">
+				<legend>Favorites and history</legend>
+				<div>
+					<label for="areas" class="block text-sm font-medium text-ink">
+						Favorite areas (comma separated)
+					</label>
+					<input
+						id="areas"
+						type="text"
+						placeholder="Living room, Kitchen"
+						class="mt-1 w-full field"
+						bind:value={areasText}
+						aria-invalid={errors['areas'] ? 'true' : undefined}
+						aria-describedby={errors['areas'] ? 'areas-error' : undefined}
+					/>
+					{@render fieldError('areas')}
+				</div>
+				<div class="grid gap-2 sm:grid-cols-4">
+					{#each INITIAL_DOMAINS as domain (domain)}
+						<label class="flex min-h-11 items-center gap-3 text-sm">
+							<input
+								type="checkbox"
+								checked={draft.favorites.domains.includes(domain)}
+								onchange={(event) =>
+									(draft.favorites.domains = toggle(
+										draft.favorites.domains,
+										domain,
+										event.currentTarget.checked
+									))}
+							/>
+							{domainLabels[domain]}
+						</label>
+					{/each}
+				</div>
+				<label class="flex min-h-11 items-center gap-3 text-sm">
+					<input type="checkbox" bind:checked={draft.history.enabled} />
+					Keep text chat history in this browser
 				</label>
-			</div>
-		{/if}
-		{@render fieldError('confirmation')}
-	</fieldset>
-
-	<fieldset class="space-y-4">
-		<legend class="text-lg font-semibold text-stone-900">Home Assistant (optional)</legend>
-		<p class="text-sm text-stone-600">Used later for live entity updates over WebSocket.</p>
-		<div>
-			<label for="ha-url" class="block text-sm font-medium text-stone-800">Base URL</label>
-			<input
-				id="ha-url"
-				type="url"
-				inputmode="url"
-				placeholder="https://homeassistant.example.com"
-				class="mt-1 w-full rounded-md border-stone-300"
-				bind:value={draft.homeAssistant.baseUrl}
-				aria-invalid={errors['ha-url'] ? 'true' : undefined}
-				aria-describedby={errors['ha-url'] ? 'ha-url-error' : undefined}
-			/>
-			{@render fieldError('ha-url')}
-		</div>
-		{@render secretField(
-			'homeAssistantToken',
-			'ha-token',
-			'Use a dedicated, least-privilege token.'
-		)}
-	</fieldset>
-
-	<fieldset class="space-y-4">
-		<legend class="text-lg font-semibold text-stone-900">Favorites and history</legend>
-		<div>
-			<label for="areas" class="block text-sm font-medium text-stone-800">
-				Favorite areas (comma separated)
-			</label>
-			<input
-				id="areas"
-				type="text"
-				placeholder="Living room, Kitchen"
-				class="mt-1 w-full rounded-md border-stone-300"
-				bind:value={areasText}
-				aria-invalid={errors['areas'] ? 'true' : undefined}
-				aria-describedby={errors['areas'] ? 'areas-error' : undefined}
-			/>
-			{@render fieldError('areas')}
-		</div>
-		<div class="grid gap-2 sm:grid-cols-4">
-			{#each INITIAL_DOMAINS as domain (domain)}
-				<label class="flex items-center gap-2 text-sm">
+				<p class="text-sm text-ink-muted">
+					Text messages are stored unencrypted. Turning history off keeps existing messages until
+					you delete them in Settings. Tool activity is not restored.
+				</p>
+				<label class="flex min-h-11 items-center gap-3 text-sm">
 					<input
 						type="checkbox"
-						checked={draft.favorites.domains.includes(domain)}
-						onchange={(event) =>
-							(draft.favorites.domains = toggle(
-								draft.favorites.domains,
-								domain,
-								event.currentTarget.checked
-							))}
+						bind:checked={draft.history.retainTranscripts}
+						disabled={!draft.history.enabled}
 					/>
-					{domainLabels[domain]}
+					Also keep full voice transcripts (planned)
 				</label>
-			{/each}
+			</fieldset>
+
+			<fieldset class="form-group space-y-4">
+				<legend>Connection details</legend>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div>
+						<label for="mcp-transport" class="block text-sm font-medium text-ink">Transport</label>
+						<select id="mcp-transport" class="mt-1 w-full field" bind:value={draft.mcp.transport}>
+							<option value="streamable-http">Streamable HTTP</option>
+							<option value="sse">Server-sent events (legacy)</option>
+						</select>
+					</div>
+					<div>
+						<label for="mcp-name" class="block text-sm font-medium text-ink">
+							Display name (optional)
+						</label>
+						<input
+							id="mcp-name"
+							type="text"
+							maxlength="80"
+							class="mt-1 w-full field"
+							bind:value={draft.mcp.displayName}
+						/>
+					</div>
+				</div>
+				<div>
+					<label for="mcp-auth" class="block text-sm font-medium text-ink">Authentication</label>
+					<select id="mcp-auth" class="mt-1 w-full field" bind:value={draft.mcp.authType}>
+						<option value="none">None</option>
+						<option value="bearer">Bearer token</option>
+					</select>
+				</div>
+			</fieldset>
+
+			<fieldset class="form-group space-y-4">
+				<legend>Home Assistant (optional)</legend>
+				<p class="text-sm text-ink-muted">Used later for live entity updates over WebSocket.</p>
+				<div>
+					<label for="ha-url" class="block text-sm font-medium text-ink">Base URL</label>
+					<input
+						id="ha-url"
+						type="url"
+						inputmode="url"
+						placeholder="https://homeassistant.example.com"
+						class="mt-1 w-full field"
+						bind:value={draft.homeAssistant.baseUrl}
+						aria-invalid={errors['ha-url'] ? 'true' : undefined}
+						aria-describedby={errors['ha-url'] ? 'ha-url-error' : undefined}
+					/>
+					{@render fieldError('ha-url')}
+				</div>
+				{@render secretField(
+					'homeAssistantToken',
+					'ha-token',
+					'Use a dedicated, least-privilege token.'
+				)}
+			</fieldset>
 		</div>
-		<label class="flex items-center gap-2 text-sm">
-			<input type="checkbox" bind:checked={draft.history.enabled} />
-			Keep text chat history in this browser
-		</label>
-		<p class="text-sm text-stone-600">
-			Text messages are stored unencrypted. Turning history off keeps existing messages until you
-			delete them in Settings. Tool activity is not restored.
-		</p>
-		<label class="flex items-center gap-2 text-sm">
-			<input
-				type="checkbox"
-				bind:checked={draft.history.retainTranscripts}
-				disabled={!draft.history.enabled}
-			/>
-			Also keep full voice transcripts (planned)
-		</label>
-	</fieldset>
+	</details>
 
 	{#if errors['form']}
-		<p class="text-sm text-red-700" role="alert">{errors['form']}</p>
+		<p class="text-sm text-danger" role="alert">{errors['form']}</p>
 	{/if}
 	{#if Object.keys(errors).length > 0}
-		<p class="text-sm text-red-700" role="alert">Please fix the highlighted fields.</p>
+		<p class="text-sm text-danger" role="alert">Please fix the highlighted fields.</p>
 	{/if}
 
-	<button
-		type="submit"
-		class="rounded-md bg-stone-900 px-4 py-2 font-medium text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2"
-	>
+	<button type="submit" class="btn w-full btn-primary sm:w-auto">
 		{submitLabel}
 	</button>
 </form>

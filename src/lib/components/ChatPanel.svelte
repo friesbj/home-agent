@@ -4,6 +4,8 @@
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { textSnapshot } from '$lib/home/chat-history';
 	import { getChatSessionManager } from '$lib/home/chat-session.svelte';
+	import { CircleAlert, SendHorizontal, Square, SquarePen, TriangleAlert } from '@lucide/svelte';
+	import AssistantOrb from './AssistantOrb.svelte';
 	import MarkdownMessage from './MarkdownMessage.svelte';
 	import ToolCallCard from './ToolCallCard.svelte';
 
@@ -16,7 +18,6 @@
 	let input = $state('');
 	const manager = getChatSessionManager();
 	const chat = $derived(manager.chat);
-	let switching = $state(false);
 	const busy = $derived(chat.status === 'submitted' || chat.status === 'streaming');
 
 	onMount(() => {
@@ -32,7 +33,7 @@
 			!appConfig.settings.history.enabled ||
 			!manager.available ||
 			!manager.initialized ||
-			switching
+			manager.switching
 		)
 			return;
 		const snapshot = textSnapshot(chat.messages, manager.interruptedTools);
@@ -40,8 +41,8 @@
 	});
 
 	async function selectSession(id: string) {
-		if (id === manager.id || switching) return;
-		switching = true;
+		if (id === manager.id || manager.switching) return;
+		manager.switching = true;
 		try {
 			const selected = manager.sessions.find((session) => session.id === id);
 			if (id !== 'new' && !selected) throw new Error('Chat session no longer exists.');
@@ -50,13 +51,13 @@
 		} catch {
 			manager.error = 'Could not open this conversation. Check browser storage and try again.';
 		} finally {
-			switching = false;
+			manager.switching = false;
 		}
 	}
 
 	function send(text: string) {
 		const value = text.trim();
-		if (!value || busy || switching) return;
+		if (!value || busy || manager.switching) return;
 		manager.interruptedTools = false;
 		chat.sendMessage({ text: value });
 		input = '';
@@ -75,7 +76,7 @@
 	}
 
 	function respond(approvalId: string, approved: boolean) {
-		if (switching) return;
+		if (manager.switching) return;
 		chat.addToolApprovalResponse({
 			id: approvalId,
 			approved,
@@ -91,18 +92,20 @@
 	}
 </script>
 
-<section
-	class="flex h-full min-h-0 flex-col rounded-lg border border-stone-200 bg-white"
-	aria-label="Chat"
->
-	{#if appConfig.settings.history.enabled}
-		<div class="flex shrink-0 items-center gap-2 border-b border-stone-200 p-3">
-			<label for="chat-session" class="text-sm font-medium text-stone-700">Conversation</label>
+<section class="flex h-full min-h-0 flex-col lg:rounded-card lg:surface-glass" aria-label="Chat">
+	<div
+		class="flex shrink-0 flex-wrap items-center gap-3 border-b border-white/10 p-2 max-lg:pl-14 lg:p-3"
+	>
+		{#if chat.messages.length > 0}
+			<span class="max-lg:hidden"><AssistantOrb size="header" /></span>
+		{/if}
+		{#if appConfig.settings.history.enabled}
+			<label for="chat-session" class="sr-only">Conversation</label>
 			<select
 				id="chat-session"
-				class="min-w-0 flex-1 rounded-md border-stone-300 text-sm"
+				class="field min-h-11 min-w-32 flex-1 py-2 text-sm"
 				value={manager.id}
-				disabled={switching || !manager.available}
+				disabled={manager.switching || !manager.available}
 				onchange={(event) => selectSession(event.currentTarget.value)}
 			>
 				{#if !manager.sessions.some((session) => session.id === manager.id)}
@@ -120,41 +123,54 @@
 			</select>
 			<button
 				type="button"
-				class="rounded-md border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100"
-				disabled={switching}
-				onclick={() => selectSession('new')}>New chat</button
+				class="btn shrink-0 btn-secondary"
+				disabled={manager.switching}
+				onclick={() => selectSession('new')}
+				><SquarePen size={16} aria-hidden="true" /> New chat</button
 			>
-		</div>
-	{/if}
-	<div {@attach autoscroll} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+		{:else}
+			<p class="flex-1 text-sm text-ink-muted">History is off; this chat is not saved.</p>
+		{/if}
+	</div>
+	<div
+		{@attach autoscroll}
+		class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 max-lg:px-2"
+		aria-live="polite"
+	>
 		{#if manager.error}
-			<p class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
-				{manager.error}
+			<p class="notice notice-error" role="alert">
+				<CircleAlert class="shrink-0 text-danger" size={20} aria-hidden="true" />
+				<span>{manager.error}</span>
 			</p>
 		{/if}
 		{#if manager.interruptedTools}
-			<p class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-				A previous response or tool action was interrupted or awaiting confirmation. Its outcome is
-				unknown; check Home Assistant before trying again.
+			<p class="notice notice-warning">
+				<TriangleAlert class="shrink-0 text-warning" size={20} aria-hidden="true" />
+				<span
+					>A previous response or tool action was interrupted or awaiting confirmation. Its outcome
+					is unknown; check Home Assistant before trying again.</span
+				>
 			</p>
 		{/if}
 		{#if manager.notice}
-			<p
-				class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
-				role="status"
-			>
-				{manager.notice}
+			<p class="notice notice-warning" role="status">
+				<TriangleAlert class="shrink-0 text-warning" size={20} aria-hidden="true" />
+				<span>{manager.notice}</span>
 			</p>
 		{/if}
 		{#if chat.messages.length === 0}
-			<div class="space-y-3 text-stone-600">
-				<p>Ask about your home or tell me what to change.</p>
-				<ul class="flex flex-wrap gap-2">
+			<div class="flex min-h-full flex-col items-center justify-center gap-5 py-2 text-center">
+				<AssistantOrb size="hero" animated />
+				<div>
+					<p class="text-xl font-semibold">How can I help at home?</p>
+					<p class="mt-2 text-ink-muted">Ask about your home or tell me what to change.</p>
+				</div>
+				<ul class="flex flex-wrap justify-center gap-2">
 					{#each suggestions as suggestion (suggestion)}
 						<li>
 							<button
 								type="button"
-								class="rounded-full border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100"
+								class="min-h-11 rounded-full border border-line-strong bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
 								onclick={() => send(suggestion)}
 							>
 								{suggestion}
@@ -167,13 +183,18 @@
 
 		{#each chat.messages as message (message.id)}
 			<article
-				class="space-y-2 {message.role === 'user' ? 'ml-auto max-w-[85%]' : 'mr-auto max-w-[95%]'}"
+				class={[
+					'space-y-2',
+					message.role === 'user' ? 'ml-auto max-w-[85%]' : 'mr-auto max-w-[95%]'
+				]}
 				aria-label={message.role === 'user' ? 'You' : 'Assistant'}
 			>
 				{#each message.parts as part, partIndex (partIndex)}
 					{#if part.type === 'text' && part.text}
 						{#if message.role === 'user'}
-							<p class="rounded-lg bg-stone-900 px-3 py-2 whitespace-pre-wrap text-white">
+							<p
+								class="rounded-2xl rounded-br-md bg-accent-fill px-4 py-2.5 whitespace-pre-wrap text-white"
+							>
 								{part.text}
 							</p>
 						{:else}
@@ -187,44 +208,58 @@
 		{/each}
 
 		{#if chat.status === 'submitted'}
-			<p class="text-sm text-stone-500">Thinking…</p>
+			<p class="flex items-center gap-2 text-sm text-ink-muted">
+				<span class="size-2 animate-pulse rounded-full bg-accent-ink" aria-hidden="true"></span>
+				Thinking…
+			</p>
 		{/if}
 		{#if chat.error}
-			<div class="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
-				<p>{chat.error.message || 'Something went wrong.'}</p>
-				<button type="button" class="mt-2 underline" onclick={() => chat.regenerate()}>
-					Try again
-				</button>
+			<div class="notice notice-error" role="alert">
+				<CircleAlert class="shrink-0 text-danger" size={20} aria-hidden="true" />
+				<div>
+					<p>{chat.error.message || 'Something went wrong.'}</p>
+					<button type="button" class="mt-2 btn btn-secondary" onclick={() => chat.regenerate()}>
+						Try again
+					</button>
+				</div>
 			</div>
 		{/if}
 	</div>
 
-	<form class="flex shrink-0 items-end gap-2 border-t border-stone-200 p-3" onsubmit={handleSubmit}>
-		<label for="chat-input" class="sr-only">Message</label>
-		<textarea
-			id="chat-input"
-			rows="2"
-			class="flex-1 resize-none rounded-md border-stone-300"
-			placeholder="Message Home Agent…"
-			bind:value={input}
-			onkeydown={handleKeydown}
-		></textarea>
-		{#if busy}
-			<button
-				type="button"
-				class="rounded-md border border-stone-300 px-4 py-2 hover:bg-stone-100"
-				onclick={() => chat.stop()}
-			>
-				Stop
-			</button>
-		{:else}
-			<button
-				type="submit"
-				class="rounded-md bg-stone-900 px-4 py-2 text-white hover:bg-stone-700 disabled:opacity-50"
-				disabled={!input.trim()}
-			>
-				Send
-			</button>
-		{/if}
+	<form class="shrink-0 border-t border-white/10 p-3 max-lg:px-2" onsubmit={handleSubmit}>
+		<div
+			class="flex field items-end gap-2 pr-1.5 pl-3 focus-within:border-accent-ink focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-accent-ink"
+		>
+			<label for="chat-input" class="sr-only">Message</label>
+			<textarea
+				id="chat-input"
+				rows="1"
+				class="[field-sizing:content] max-h-[10.75rem] min-h-[3.25rem] min-w-0 flex-1 resize-none border-0! bg-transparent! px-0 py-3.5 shadow-none! placeholder:text-ink-muted/80 focus:ring-0! focus-visible:outline-none!"
+				placeholder="Message Home Agent…"
+				bind:value={input}
+				onkeydown={handleKeydown}
+			></textarea>
+			{#if busy}
+				<button
+					type="button"
+					class="mb-1.5 btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-secondary"
+					aria-label="Stop"
+					title="Stop"
+					onclick={() => chat.stop()}
+				>
+					<Square size={16} fill="currentColor" aria-hidden="true" />
+				</button>
+			{:else}
+				<button
+					type="submit"
+					class="mb-1.5 btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-primary"
+					aria-label="Send"
+					title="Send"
+					disabled={!input.trim()}
+				>
+					<SendHorizontal size={20} aria-hidden="true" />
+				</button>
+			{/if}
+		</div>
 	</form>
 </section>

@@ -62,7 +62,7 @@
 </script>
 
 <div
-	class="prose prose-sm max-w-none overflow-x-auto rounded-lg bg-stone-100 px-3 py-2 [overflow-wrap:anywhere] text-stone-900 prose-pre:overflow-x-auto"
+	class="prose prose-sm max-w-none overflow-x-auto rounded-2xl rounded-bl-md border border-white/10 bg-white/5 px-4 py-3 [overflow-wrap:anywhere] prose-invert prose-a:text-accent-ink prose-pre:overflow-x-auto prose-pre:border prose-pre:border-line-strong/40 prose-pre:bg-[#0f1733]"
 >
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- The Markdown output is sanitized above. -->
 	{@html html}
