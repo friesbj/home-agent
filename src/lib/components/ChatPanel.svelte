@@ -92,10 +92,10 @@
 	}
 </script>
 
-<section class="flex h-full min-h-0 flex-col rounded-card surface-glass" aria-label="Chat">
-	<div class="flex shrink-0 items-center gap-3 border-b border-white/10 p-3">
+<section class="flex h-full min-h-0 flex-col lg:rounded-card lg:surface-glass" aria-label="Chat">
+	<div class="flex shrink-0 items-center gap-3 border-b border-white/10 p-2 max-lg:pl-14 lg:p-3">
 		{#if chat.messages.length > 0}
-			<AssistantOrb size="header" />
+			<span class="max-lg:hidden"><AssistantOrb size="header" /></span>
 		{/if}
 		{#if appConfig.settings.history.enabled}
 			<label for="chat-session" class="sr-only">Conversation</label>
@@ -130,7 +130,11 @@
 			<p class="flex-1 text-sm text-ink-muted">History is off; this chat is not saved.</p>
 		{/if}
 	</div>
-	<div {@attach autoscroll} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+	<div
+		{@attach autoscroll}
+		class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 max-lg:px-2"
+		aria-live="polite"
+	>
 		{#if manager.error}
 			<p class="notice notice-error" role="alert">
 				<CircleAlert class="shrink-0 text-danger" size={20} aria-hidden="true" />
@@ -220,36 +224,38 @@
 		{/if}
 	</div>
 
-	<form class="flex shrink-0 items-end gap-2 border-t border-white/10 p-3" onsubmit={handleSubmit}>
-		<label for="chat-input" class="sr-only">Message</label>
-		<textarea
-			id="chat-input"
-			rows="2"
-			class="min-w-0 flex-1 resize-none field"
-			placeholder="Message Home Agent…"
-			bind:value={input}
-			onkeydown={handleKeydown}
-		></textarea>
-		{#if busy}
-			<button
-				type="button"
-				class="btn size-11 shrink-0 rounded-full p-0 btn-secondary"
-				aria-label="Stop"
-				title="Stop"
-				onclick={() => chat.stop()}
-			>
-				<Square size={16} fill="currentColor" aria-hidden="true" />
-			</button>
-		{:else}
-			<button
-				type="submit"
-				class="btn size-11 shrink-0 rounded-full p-0 btn-primary"
-				aria-label="Send"
-				title="Send"
-				disabled={!input.trim()}
-			>
-				<SendHorizontal size={20} aria-hidden="true" />
-			</button>
-		{/if}
+	<form class="shrink-0 border-t border-white/10 p-3 max-lg:px-2" onsubmit={handleSubmit}>
+		<div class="flex items-end gap-2 field py-1.5 pr-1.5 pl-3 focus-within:border-accent-ink">
+			<label for="chat-input" class="sr-only">Message</label>
+			<textarea
+				id="chat-input"
+				rows="1"
+				class="[field-sizing:content] max-h-40 min-h-10 min-w-0 flex-1 resize-none border-0! bg-transparent! px-0 py-2 shadow-none! placeholder:text-ink-muted/80 focus:ring-0! focus-visible:outline-none!"
+				placeholder="Message Home Agent…"
+				bind:value={input}
+				onkeydown={handleKeydown}
+			></textarea>
+			{#if busy}
+				<button
+					type="button"
+					class="btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-secondary"
+					aria-label="Stop"
+					title="Stop"
+					onclick={() => chat.stop()}
+				>
+					<Square size={16} fill="currentColor" aria-hidden="true" />
+				</button>
+			{:else}
+				<button
+					type="submit"
+					class="btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-primary"
+					aria-label="Send"
+					title="Send"
+					disabled={!input.trim()}
+				>
+					<SendHorizontal size={20} aria-hidden="true" />
+				</button>
+			{/if}
+		</div>
 	</form>
 </section>

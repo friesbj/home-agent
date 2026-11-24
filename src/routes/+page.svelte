@@ -28,14 +28,27 @@
 
 <div class="lg:h-dvh">
 	<div
-		class="mx-auto flex min-h-dvh max-w-7xl flex-col px-5 pt-6 lg:h-dvh lg:min-h-0 lg:px-8 lg:pb-7"
+		class={[
+			'mx-auto flex min-h-dvh max-w-7xl flex-col lg:h-dvh lg:min-h-0 lg:px-8 lg:pt-6 lg:pb-7',
+			mobileView === 'assistant' ? 'px-0 pt-0' : 'px-5 pt-6'
+		]}
 	>
-		<header class="flex shrink-0 items-center justify-between gap-4 pb-6">
+		<header
+			class={[
+				'flex shrink-0 items-center justify-between gap-4 lg:pointer-events-auto lg:static lg:p-0 lg:pb-6',
+				mobileView === 'assistant'
+					? 'pointer-events-none absolute top-[env(safe-area-inset-top)] left-0 z-10 p-2'
+					: 'pb-6'
+			]}
+		>
 			<div class="flex min-w-0 items-center gap-3">
-				<span class="icon-well" aria-hidden="true">
+				<span
+					class={['icon-well', mobileView === 'assistant' && 'max-lg:size-10 max-lg:border-0']}
+					aria-hidden="true"
+				>
 					<House class="text-accent-ink" size={21} strokeWidth={1.75} />
 				</span>
-				<div class="min-w-0">
+				<div class={['min-w-0', mobileView === 'assistant' && 'max-lg:hidden']}>
 					<h1 class="text-lg font-bold tracking-tight">Home Agent</h1>
 					<p class="truncate text-sm text-ink-muted">{serverLabel}</p>
 				</div>
@@ -47,7 +60,10 @@
 		</header>
 
 		<main
-			class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:grid-rows-1 lg:pb-0"
+			class={[
+				'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:grid-rows-1 lg:px-0 lg:pb-0',
+				mobileView === 'assistant' ? 'px-0 pt-[env(safe-area-inset-top)]' : 'px-0'
+			]}
 		>
 			<section
 				class={['min-h-0 lg:block lg:overflow-y-auto lg:pr-2', { hidden: mobileView !== 'home' }]}
@@ -62,8 +78,10 @@
 
 			<section
 				class={[
-					'h-[calc(100dvh-12rem-env(safe-area-inset-bottom))] min-h-0 lg:block lg:h-auto',
-					{ hidden: mobileView !== 'assistant' }
+					'min-h-0 lg:block lg:h-auto',
+					mobileView === 'assistant'
+						? 'h-[calc(100dvh-7rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'
+						: 'hidden h-[calc(100dvh-12rem-env(safe-area-inset-bottom))]'
 				]}
 				aria-label="Assistant"
 			>
