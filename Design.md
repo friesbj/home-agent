@@ -2,11 +2,11 @@
 
 ## Status and Scope
 
-This document is the evolving, project-wide foundation for Home Agent's design. It describes the design direction and implementation plan for [M2a](./Milestones.md#m2a---mobile-first-product-design); it does not imply that the design has already been implemented or visually approved.
+This document is the evolving, project-wide foundation for Home Agent's design. It describes the design direction and implementation plan for [M2a](./Milestones.md#m2a---mobile-first-product-design); M2a implemented it and the user accepted it on real devices on 2026-11-24; later milestones extend it.
 
 New features should fit this shared product language. As requirements or insights change, evolve the concept deliberately rather than creating different visual styles for individual pages. Specific values are starting points to be verified during implementation against contrast, devices, and actual behavior.
 
-M2a implementation status: the foundation, shell, Home dashboard, scene shortcuts, Assistant, onboarding, and Settings use this design system; no primary view keeps the earlier light style. The voice screen specification and the final cross-device validation are still open; see [Milestones.md](./Milestones.md#m2a---mobile-first-product-design). Decisions taken during implementation are recorded under [Resolved Design Decisions](#resolved-design-decisions).
+M2a status: complete. The foundation, shell, Home dashboard, scene shortcuts, Assistant, onboarding, and Settings use this design system, no primary view keeps the earlier light style, the voice screen is specified, and the design was validated by automated checks and accepted by the user on real devices; see [Milestones.md](./Milestones.md#m2a---mobile-first-product-design). Decisions taken during implementation are recorded under [Resolved Design Decisions](#resolved-design-decisions).
 
 The working application is the foundation, not a throwaway prototype. Preserve its architecture, data flows, security, and core functionality. This document does not authorize implementation: the immersive voice screen is a concept here; actual voice functionality belongs to M3.
 
@@ -466,4 +466,4 @@ The criteria above are checked by `e2e/design-acceptance.test.ts`, which runs ag
 
 The checks are known to fail when something regresses: replacing the secondary text color with a weak gray makes both the Axe audit and the rendered contrast measurement fail.
 
-Not covered by automation, and therefore part of the user's device acceptance: real iOS Safari and Android Chrome behavior with the on-screen keyboard and safe areas (the keyboard is emulated by a short viewport), a pass with a real screen reader (VoiceOver, TalkBack, or NVDA), and scrolling and animation smoothness on a mid-range phone.
+Not covered by automation, and therefore checked by the user on real devices (accepted on 2026-11-24): real iOS Safari and Android Chrome behavior with the on-screen keyboard and safe areas (the keyboard is emulated by a short viewport), a pass with a real screen reader (VoiceOver, TalkBack, or NVDA), and scrolling and animation smoothness on a mid-range phone.
