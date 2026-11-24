@@ -65,6 +65,15 @@ function describeTarget(input: Record<string, unknown>): string {
 	return parts.length > 0 ? parts.join(', ') : 'all matching devices';
 }
 
+/** Named targets of a tool call for display; empty when it addresses all matching devices. */
+export function toolCallTargets(rawInput: unknown): string[] {
+	const input = asRecord(rawInput);
+	return (['name', 'area', 'floor'] as const).flatMap((key) => {
+		const value = input[key];
+		return typeof value === 'string' && value.trim() ? [value.trim()] : [];
+	});
+}
+
 const DETAIL_KEYS = ['brightness', 'color', 'temperature', 'position'] as const;
 
 export function describeToolCall(name: string, rawInput: unknown): string {
