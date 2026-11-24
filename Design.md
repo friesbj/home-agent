@@ -154,7 +154,7 @@ The orb is a sphere of connected points of light, cyan-white at its points and b
 - **One component:** a reusable `AssistantOrb` with size and state properties. Generate it in code, for example by distributing points on a sphere, projecting them, and connecting near neighbors, rendered as SVG or canvas. Do not trace or embed the reference image.
 - **Hierarchy:** at most one orb is animated per view. On Home, the navigation orb is the live one; the orb in the entry card is a static illustration.
 - **States:** idle is a slow rotation or gentle breathing. Voice states in M3 build on the same component. With reduced motion it is a static render.
-- **Honest affordance:** until M3 the navigation orb opens the text assistant, so it shows an assistant glyph rather than a microphone, and the hint above it reads "Ask your home" rather than "Tap the mic to start voice mode". The microphone and the voice hint appear only when voice works.
+- **Honest affordance:** the navigation orb showed an assistant glyph and opened the text assistant until voice worked. Since M3 it shows a microphone, is named "Start voice mode", and opens the voice stage.
 - **Accessibility:** the orb button has an accessible name describing what it opens and a visible focus indicator that does not rely on its glow.
 
 ## Information Architecture
@@ -165,7 +165,7 @@ The product has three destinations: **Home** (start), **Assistant**, and **Setti
 
 On mobile, a bottom navigation bar shows Home on the left and Settings on the right, as icons without labels; each has an accessible name and a pressed or current state. The orb sits in the center, raised above the bar, which curves around it. The bar respects the bottom safe area and uses backdrop blur over scrolling content.
 
-Assistant opens from the orb and from the entry card on Home. On mobile it fills the screen, the page header shrinks to a small Home icon overlay, and the navigation bar stays so that Home is one tap away. The voice stage in M3 is different: it is an immersive full-screen mode without the bar; see [Future Voice Mode](#future-voice-mode).
+The text Assistant opens from the entry card on Home ("Type") and from the voice stage ("Back to text"); the orb starts voice mode. While a text response is running or a confirmation is pending, voice is unavailable and the orb opens the conversation instead. On mobile the Assistant fills the screen, the page header shrinks to a small Home icon overlay, and the navigation bar stays so that Home is one tap away. The voice stage in M3 is different: it is an immersive full-screen mode without the bar; see [Future Voice Mode](#future-voice-mode).
 
 Switching between Home and Assistant must not lose or restart an active response, the current conversation, or a pending approval. ChatPanel currently cancels in-progress work when it is unmounted, so the shell has to keep the conversation alive across these two views, for example by keeping it mounted or by moving its lifecycle into the shell. Decide the technical shape, route or in-page view, in the shell slice. Navigating to Settings keeps today's behavior unless it is changed deliberately.
 
@@ -175,7 +175,7 @@ Home follows the reference from top to bottom:
 
 1. **Header:** product mark, "Home Agent", and a compact subtitle with the connection name. An activity button sits on the right; see [Activity](#activity).
 2. **Greeting:** a time-of-day greeting with the optional display name from Settings, and a status sentence. The sentence is derived only from fetched data, for example "5 lights on · 21.5 °C in the living room", "Everything is off", or "Could not reach your home". It never states an unconditional judgment such as "Your home is looking great". The time of the last update and a labeled refresh control sit nearby.
-3. **Assistant entry card:** the orb, "Ask your home", and one supporting line. It opens Assistant. In M3 it also offers voice.
+3. **Assistant entry card:** the orb, "Ask your home", one supporting line, and two actions: **Talk** starts voice mode and **Type** opens the text Assistant.
 4. **Domain summary cards:** a two-column row. Lights shows how many are on and off. Climate shows the current temperature, or a range when several climate devices are exposed. Both are read-only summaries with a chevron that opens the matching devices. They show no switch in M2a.
 5. **Scenes:** a section header with "See all" and a horizontally scrolling row of icon tiles for exposed scenes. Each tile is an [assistant shortcut](#assistant-shortcuts). The section is hidden when no scenes are exposed.
 6. **Rooms:** the existing collapsible room list in the same section pattern, favorites first, collapsed by default. It keeps its behavior with many rooms and repeated entity names.
@@ -271,18 +271,20 @@ The user supplied an external UX workspace with a clickable voice simulation and
 ### Entry, First Use, and Exit
 
 - **Entry points:** the navigation orb (which shows a microphone once voice works), the voice offer in the Home entry card, and a Text/Voice switch in the Assistant header. All of them open the same stage.
+  - As built: the navigation orb ("Start voice mode"), Talk in the Home entry card, and the Voice button in the Assistant header. Voice is unavailable while a text response is running or a text confirmation is pending, because voice turns join that conversation; the orb and Talk then open the conversation instead.
 - **First use:** if the microphone permission is not granted, or no OpenAI key is available, the stage opens on a single setup screen instead of connecting. It states in two sentences what happens (audio goes to the model provider through this application's server, only while the stage is open, and transcripts are not stored unless the user enabled it), shows the current voice with a link to Advanced settings, and offers one primary button, "Allow microphone". The browser prompt is triggered by that button, as browsers require. Once permission exists, tapping the orb connects immediately.
-- **Permission denied:** the stage shows "Microphone blocked", a short note on how to allow it in the browser, and "Back to text". Text chat stays fully usable.
+  - As built: the stage asks the browser for the microphone permission when it opens. Granted connects at once from every entry point; not yet decided shows the setup screen; a browser that cannot report the permission is treated as not yet decided. Whether a key exists is known only to the server, so a missing key shows as "Could not connect" with the server's message instead of the setup screen.
+- **Permission denied:** the stage shows "Microphone blocked", a short note on how to allow it in the browser, "Try again" for after the permission was changed, and "Back to text". Text chat stays fully usable. A dismissed prompt is not a refusal and returns to the setup screen.
 - **End:** stops the session and releases the microphone, and the stage stays open in the Ready state so that one tap starts again.
 - **Back to text:** leaves the stage. A running session ends first. Escape does the same. A pending confirmation is cancelled and marked as interrupted, exactly like the existing text behavior when the conversation is left.
 - **Focus:** opening the stage moves focus to the primary control of the current state; closing it returns focus to the element that opened it, or to the Assistant heading if that element no longer exists.
-- **Microphone lifetime:** the microphone is captured only while a session runs. Closing the stage, ending the session, and navigating away release it. Whether a session continues when the tab is hidden is an open decision.
+- **Microphone lifetime:** the microphone is captured only while a session runs. Closing the stage, ending the session, and navigating away release it. A session ends after the tab has been hidden for 60 seconds.
 
 ### Layout
 
 Mobile is full screen, respects the top and bottom safe areas, and hides the navigation bar. Tablet and desktop use a centered panel of about 560 px over the dimmed app; the app behind it stays mounted but inert, and the panel is a modal dialog with a focus trap. The content is one column on every size, top to bottom:
 
-1. **Header:** the eyebrow "Live conversation", the title "Home Agent", and a microphone chip that always states whether the microphone is on or off. Next to them sits the Back to text control, at least 44 by 44 px.
+1. **Header:** the eyebrow "Live conversation", the title "Home Agent", and a microphone chip that always states whether the microphone is on or off.
 2. **Orb:** the focus. About 60 % of the width on mobile, between 180 and 320 px; on viewports shorter than 600 px it shrinks to 140 px. While a confirmation is open it recedes to about 96 px.
 3. **Status:** one word in 19 to 20 px semibold in the primary text color, in a polite live region, with one line of secondary text below it. The color is the same in every state, so the state is always carried by the word.
 4. **Captions:** the last heard and last spoken sentences, up to three lines on mobile and more on desktop, with a Hide captions control. Captions are not announced by screen readers, to avoid speaking over the assistant.
@@ -298,18 +300,19 @@ The status word shows the dominant conversation state. The microphone chip and t
 
 Priority: Error, Confirmation, Speaking, Thinking, Listening, Connecting, Ready.
 
-| State                 | Real signal                                                 | Orb                                                                               | Status and detail                                              | Controls                                   |
-| --------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ |
-| Ready                 | No session                                                  | Static, dimmed                                                                    | "Ready"                                                        | Start conversation (primary), Back to text |
-| Needs microphone      | Permission not granted or an unanswered prompt              | Static, dimmed                                                                    | "Microphone access needed"                                     | Allow microphone (primary), Back to text   |
-| Connecting            | Session creation and WebRTC negotiation in progress         | Slow indeterminate shimmer                                                        | "Connecting…"; after 15 s becomes Error                        | End                                        |
-| Listening             | Connected and the microphone is on                          | Slow, fixed-rate breathing; amplitude follows the real input level when available | "Listening"                                                    | Turn microphone off, End                   |
-| Speaking              | Assistant audio is playing                                  | Motion follows the real output level; static breathing if no level is available   | "Speaking"                                                     | Turn microphone off, End                   |
-| Thinking / delegation | A delegated backend task is running                         | Slow rotation, restrained                                                         | "Working on it…"; chip stays while the assistant speaks        | Turn microphone off, End                   |
-| Tool use              | A tool call is running                                      | As in the state beneath it                                                        | Activity strip: Read or Change, target, progress               | Unchanged                                  |
-| Confirmation          | The server issued an approval request                       | Recedes and dims                                                                  | "Waiting for your confirmation" and the card                   | Approve, Deny (card); End                  |
-| Microphone off        | The audio track is disabled                                 | Dimmed, desaturated, slashed microphone mark                                      | Chip "Microphone off"; the status keeps the conversation state | Turn microphone on, End                    |
-| Error / disconnected  | Connection lost, session expired, or microphone unavailable | Static, no glow                                                                   | "Connection lost" or the specific cause, one line              | Try again (primary), Back to text          |
+| State                 | Real signal                                                  | Orb                                                                               | Status and detail                                              | Controls                                   |
+| --------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ |
+| Ready                 | No session                                                   | Static, dimmed                                                                    | "Ready"                                                        | Start conversation (primary), Back to text |
+| Needs microphone      | Permission not granted or an unanswered prompt               | Static, dimmed                                                                    | "Microphone access needed"                                     | Allow microphone (primary), Back to text   |
+| Connecting            | Session creation and WebRTC negotiation in progress          | Slow indeterminate shimmer                                                        | "Connecting…"; after 15 s becomes Error                        | End                                        |
+| Listening             | Connected and the microphone is on                           | Slow, fixed-rate breathing; amplitude follows the real input level when available | "Listening"                                                    | Turn microphone off, End                   |
+| Speaking              | Assistant audio is playing                                   | Motion follows the real output level; static breathing if no level is available   | "Speaking"                                                     | Turn microphone off, End                   |
+| Thinking / delegation | A delegated backend task is running                          | Slow rotation, restrained                                                         | "Working on it…"; chip stays while the assistant speaks        | Turn microphone off, End                   |
+| Tool use              | A tool call is running                                       | As in the state beneath it                                                        | Activity strip: Read or Change, target, progress               | Unchanged                                  |
+| Confirmation          | The server issued an approval request                        | Recedes and dims                                                                  | "Waiting for your confirmation" and the card                   | Approve, Deny (card); End                  |
+| Microphone off        | The audio track is disabled                                  | Dimmed, desaturated, slashed microphone mark                                      | Chip "Microphone off"; the status keeps the conversation state | Turn microphone on, End                    |
+| Ending                | The session is closing and awaits the provider's final event | Dimmed, as for Microphone off                                                     | "Ending…"; the microphone is already off                       | Both disabled until the session has closed |
+| Error / disconnected  | Connection lost, session expired, or microphone unavailable  | Static, no glow                                                                   | "Connection lost" or the specific cause, one line              | Try again (primary), Back to text          |
 
 Transitions:
 
@@ -323,12 +326,17 @@ Rules:
 - **Muting must mute.** The button disables the outgoing audio track, not just the visuals, and a test proves it.
 - **No retry loops.** After a lost connection the product makes at most one automatic attempt, then shows Error with "Try again".
 - **No faked signals.** The breathing means "connected and attentive", never "sound detected". Amplitude-driven motion exists only when real level data does.
+- **Only a closed session is an error.** A problem that leaves the session open (a rejected request, a moderation notice) appears as a notice below the status and clears when the user speaks again. Error is reserved for a closed session, a lost connection, or an unavailable microphone.
+- **Ending stops the microphone first.** The outgoing audio track is disabled the moment the user ends the session, before the provider confirms the shutdown.
+- **States hold through pauses.** Speaking lasts until the assistant's audio has been silent for 0.8 seconds, so pauses between words do not flicker the status, and the row for overlapping states keeps its height whether or not a chip is shown.
 
 ### Confirmation in Voice
 
-The assistant may announce that it needs a confirmation, but speaking "yes" does not approve anything; approval requires the on-screen buttons until the product decides otherwise (see M3).
+The assistant announces that a confirmation is waiting. The decision is made with the on-screen Approve and Deny controls; spoken approval is deferred (see [Resolved Design Decisions](#resolved-design-decisions)). The server validates the pending request before execution.
 
 - The card shows the question in plain words ("Turn on the living-room light?"), the Read or Change label, the targets and, for group actions, the number of affected devices, then **Approve** (primary) and **Deny** (secondary), each at least 44 px high.
+  - As built: the summary is the server's description of the exact call the approval is bound to, the same wording as the text chat's confirmation. Home Assistant resolves names and areas itself, so the number of affected devices is unknown and omitted; a call without a named target reads "All matching devices".
+  - One confirmation is shown at a time; the backend issues tool calls sequentially.
 - When the card appears, a polite announcement states the action, and focus moves to the card itself, which has an accessible name. Neither button is focused, so a stray Enter or Space cannot approve.
 - The live model is instructed to say that a confirmation is waiting on screen.
 - Approving, denying, ending the session, and leaving the stage all resolve the card; none of them leaves a stale confirmation behind.
@@ -344,9 +352,9 @@ The assistant may announce that it needs a confirmation, but speaking "yes" does
 
 ### Captions and Transcripts
 
-- Captions show the latest turns and can be hidden. They are the text equivalent of the conversation.
+- Captions show the latest turn of each speaker and can be hidden. They are the text equivalent of the conversation. The provider sends transcript fragments with timestamps but without turn boundaries; fragments of one speaker that overlap or follow within 1.5 seconds form one turn.
 - Nothing is stored unless the user enabled transcript retention in Settings. Audio is never stored.
-- Proposed, pending the user's decision: when retention is on, voice turns are added as text messages to the current chat session, so they appear in the Assistant and are removed by the existing "Clear chat history". When it is off, captions vanish with the stage.
+- When transcript retention is on, voice turns are added as text messages to the current chat session when the voice session ends, so they appear in the Assistant and are removed by the existing "Clear chat history". When it is off, or text history is off, captions vanish with the stage.
 
 ### Accessibility
 
@@ -392,7 +400,7 @@ Later milestones add capabilities to the views that M2a designs. They extend the
 
 - Voice mode implements [Future Voice Mode](#future-voice-mode), which is the complete specification of the stage, its states, first use, confirmations, captions, rendering, and accessibility. Text and voice are two modes of one assistant with a visible switch between them.
 - When voice works, the navigation orb shows the microphone, the hint reads as in the reference, and the Home entry card offers voice.
-- Confirmations in voice mode use the same solid confirmation card as text. Until the product decides otherwise, approval requires the on-screen control.
+- Confirmations in voice mode use the same solid confirmation card as text and are answered on screen; the server validates the request.
 - Build the presentational stage and the orb states first, from fixed data, and review every state before audio is connected.
 
 ### M4: Live Data and Direct Control
@@ -427,15 +435,16 @@ These questions were open in the plan and were decided during M2a implementation
 - **Long words and large text:** the shell sets `overflow-wrap: anywhere` and fieldsets may shrink, so long names, addresses, and words wrap instead of forcing horizontal scrolling. Rows of buttons and the chat header wrap when text is enlarged.
 - **Form fields:** every `field` is at least 44 px high. In the composer, the textarea fills the whole 52 px field, so the entire field is the touch target, and the field draws the same 3 px focus ring as every other control.
 - **Touch-target exception:** the composer's Send and Stop buttons stay at 40 px by the user's request. They sit inside a 52 px field with 6 px of space around them and exceed the WCAG 2.2 AA minimum of 24 px.
+- **M3 transcript retention (user decision):** when enabled, voice turns join the active text-chat session; when disabled, they are transient and disappear with the voice stage.
+- **M3 background sessions (user decision):** end a running voice session after 60 seconds with the tab hidden.
+- **M3 spoken approval (user decision, revised 2026-11-24):** deferred. Confirmations in voice are answered with the on-screen controls; a user who wants a more fluid conversation can relax the confirmation policy in Settings. If it is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve.
+- **M3 tool bridge (user decision):** expose application function tools through Responses delegation and route execution through the server MCP gateway, without sending MCP credentials to OpenAI's hosted MCP tool runner.
+- **Voice sample previews (user decision):** defer sample playback beyond M3 to avoid extra provider usage.
 
 ## Open Design Questions
 
-These stay open until the user decides or the M3 work shows the answer:
+These stay open until the user decides or later work shows the answer:
 
-- **Voice transcripts:** when retention is enabled, should voice turns be added as text messages to the current chat session (the proposal in [Captions and Transcripts](#captions-and-transcripts)), or kept separately?
-- **Spoken approval:** may a spoken confirmation ever approve an action? Until decided, approval requires the on-screen control.
-- **Hidden tab:** should a running voice session end when the tab has been hidden for a while (for example 60 seconds), or continue?
-- **Voice samples:** should Settings offer a short sample of each voice? It needs an audio sample per voice and may cost provider usage.
 - **Composer glow:** the chat reference has a soft colored glow along the composer's bottom edge. It could replace the plain focus treatment as the view's one selection glow, provided the focus outline stays visible.
 - **Message actions:** small chips under messages (for example Copy) as in the chat reference; a candidate after M2a.
 

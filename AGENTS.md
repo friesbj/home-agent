@@ -30,7 +30,7 @@ This section is the implementation plan for future coding sessions.
 
 - The first deliverable is a public-facing text chat MVP.
 - M2a plans a coherent, dark, premium mobile-first design for the existing MVP; the immersive voice experience is a design concept until M3 implements voice.
-- The user's reference screen in `docs/design/reference-mobile-home.png` is the visual model for M2a. Mobile navigation is Home, a center orb that opens the assistant (text until M3 adds voice), and Settings.
+- The user's reference screen in `docs/design/reference-mobile-home.png` is the visual model for M2a. Mobile navigation is Home, a center orb, and Settings. Since M3 the orb starts voice mode, and the Home entry card offers Talk (voice) and Type (text chat).
 - In M2a, Home shows read-only summaries; scene tiles are assistant shortcuts that go through the existing confirmation flow. Direct device switches outside the conversation belong to M4.
 - The greeting uses the time of day and an optional display name from Settings.
 - Browser voice uses OpenAI GPT-Live over WebRTC.
@@ -39,6 +39,7 @@ This section is the implementation plan for future coding sessions.
 - Configure the live model and backend model independently. Initial live model: `gpt-live-1.1`; backend model selection remains configurable.
 - The first GPT-Live implementation uses Responses delegation. Client delegation remains a documented later migration option.
 - For browser WebRTC, the trusted server exchanges the browser's SDP offer for an SDP answer using its configured OpenAI API key or, in the private browser-first MVP, the key supplied only to the same-origin server endpoint. Never send that key from the browser to OpenAI or return it as a Live credential; public production must use server-side key storage.
+- `POST /api/live/session` accepts a bounded SDP offer, creates the configured Live session through OpenAI's `/v1/live/sessions`, and returns only the opaque session ID and SDP answer. The HTTP exchange starts the session; the browser waits for `session.started` and must not send `session.start`. The shared request guard supplies same-origin checks, rate limits, and body-size limits.
 - Home Assistant is reached through an existing MCP server.
 - The initial public-hosted MVP is a private testing phase with no login. It must be deployed only to an explicitly restricted environment, with no exposure to unrelated users.
 - Authentication, rate limiting, origin controls, session isolation, and explicit action authorization remain required before a generally available public release.
@@ -48,6 +49,13 @@ This section is the implementation plan for future coding sessions.
 - The public/internet-ready production phase should replace browser-only secret storage with an appropriate server-side secret flow before being treated as secure.
 - On first start, the user completes an onboarding form for the essential MCP and voice settings.
 - The private MVP is designed for one user and persists browser-side conversation/action history when enabled.
+- When transcript retention is enabled, voice transcripts join the active text-chat session; otherwise they remain transient and disappear when the voice stage closes.
+- A voice session ends after the tab has been hidden for 60 seconds.
+- Spoken approval is deferred (user decision, 2026-11-24): in voice mode a pending change is approved or denied only with the on-screen controls. A user who prefers a more fluid conversation can relax the confirmation policy in Settings. If spoken approval is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve, and the server must validate the pending request.
+- Responses delegation exposes Home Assistant capabilities as application function tools routed through the existing server-side MCP gateway; MCP credentials are not sent to OpenAI's hosted MCP tool runner.
+- Delegated function calls arrive on the browser's Live data channel. The browser forwards each call to `POST /api/live/tool`, which authorizes it against the tool allowlist and the confirmation policy, runs it through the MCP gateway, and returns the text for the `function_call_output`; the browser then continues the backend response. A change that needs confirmation runs only with an approval token that the server issued for exactly that session, call, tool, and arguments (HMAC with `TOOL_APPROVAL_SECRET`, five-minute lifetime, single use per server process).
+- Speaking over the assistant does not cancel delegated work. Ending the voice session or leaving the stage abandons pending tool calls and confirmations; a change that was running or awaiting confirmation is reported in the text chat as interrupted with an unknown outcome.
+- Voice sample playback is deferred beyond M3 to avoid extra provider usage.
 - M2 follow-up: text history is organized into selectable chat sessions. A new tab, browser restart, or page reload starts a new session; returning from Settings keeps the active session. Delete the legacy v1 chat history during the transition instead of migrating it; retain settings and credentials.
 - Switching chat sessions cancels in-progress responses and pending confirmations; already-started device actions may have an unknown outcome and must not be assumed undone.
 - Mutating Home Assistant actions can require confirmation according to the user's onboarding/settings preference.
@@ -134,7 +142,7 @@ The gateway is responsible for:
 - translating MCP errors into safe UI messages
 - returning function-call or MCP results to the GPT-Live continuation flow
 
-For GPT-Live, MCP tools may be registered under Responses delegation or executed through client delegation. The application must not assume that a tool call means that a mutating action is authorized. The backend emits a call, but the server-side gateway must validate the call and confirmation state before execution.
+For GPT-Live, expose application function tools through Responses delegation and execute them through the server-side MCP gateway. Do not pass MCP credentials to OpenAI's hosted MCP tool runner. The application must not assume that a tool call means that a mutating action is authorized. The backend emits a call, but the server-side gateway must validate the call and confirmation state before execution.
 
 ## 4. Home Assistant connection
 
