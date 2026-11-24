@@ -518,7 +518,7 @@
 						bind:checked={draft.history.retainTranscripts}
 						disabled={!draft.history.enabled}
 					/>
-					Also keep full voice transcripts (planned)
+					Also add voice conversations to the chat as text
 				</label>
 			</fieldset>
 

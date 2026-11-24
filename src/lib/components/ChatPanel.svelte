@@ -4,10 +4,23 @@
 	import { appConfig } from '$lib/config/app-config.svelte';
 	import { textSnapshot } from '$lib/home/chat-history';
 	import { getChatSessionManager } from '$lib/home/chat-session.svelte';
-	import { CircleAlert, SendHorizontal, Square, SquarePen, TriangleAlert } from '@lucide/svelte';
+	import {
+		CircleAlert,
+		Mic,
+		SendHorizontal,
+		Square,
+		SquarePen,
+		TriangleAlert
+	} from '@lucide/svelte';
 	import AssistantOrb from './AssistantOrb.svelte';
 	import MarkdownMessage from './MarkdownMessage.svelte';
 	import ToolCallCard from './ToolCallCard.svelte';
+
+	interface Props {
+		onstartvoice?: () => void;
+	}
+
+	let { onstartvoice }: Props = $props();
 
 	const suggestions = [
 		'Which lights are on right now?',
@@ -130,6 +143,18 @@
 			>
 		{:else}
 			<p class="flex-1 text-sm text-ink-muted">History is off; this chat is not saved.</p>
+		{/if}
+		{#if onstartvoice}
+			<button
+				id="start-voice"
+				type="button"
+				class="btn shrink-0 btn-secondary"
+				disabled={Boolean(manager.shortcutBlockedReason)}
+				title={manager.shortcutBlockedReason || undefined}
+				onclick={onstartvoice}
+			>
+				<Mic size={16} aria-hidden="true" /> Voice
+			</button>
 		{/if}
 	</div>
 	<div

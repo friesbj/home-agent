@@ -6,6 +6,7 @@ import {
 } from 'ai';
 import { appConfig } from '$lib/config/app-config.svelte';
 import { loadSettings, STORAGE_KEYS } from '$lib/config/settings';
+import type { LiveTranscriptTurn } from '$lib/live/events';
 import { credentialHeaders, savedMcpTarget } from './api';
 import {
 	CHAT_SESSION_PREFIX,
@@ -91,6 +92,22 @@ class ChatSessionManager {
 		this.interruptedTools = false;
 		void this.chat.sendMessage({ text: value });
 		return true;
+	}
+
+	/** Adds the turns of a finished voice session to this chat when transcript retention is on. */
+	appendVoiceTranscript(turns: LiveTranscriptTurn[]) {
+		const { enabled, retainTranscripts } = appConfig.settings.history;
+		if (!enabled || !retainTranscripts) return;
+		const messages = [...this.chat.messages];
+		for (const turn of turns) {
+			if (!turn.text.trim()) continue;
+			messages.push({
+				id: crypto.randomUUID(),
+				role: turn.role,
+				parts: [{ type: 'text', text: turn.text }]
+			});
+		}
+		this.chat.messages = messages;
 	}
 
 	async initialize() {

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import {
-		ArrowUpRight,
 		ChevronRight,
 		CircleAlert,
 		Info,
 		Lightbulb,
+		MessageCircle,
+		Mic,
 		RefreshCw,
 		Thermometer
 	} from '@lucide/svelte';
@@ -19,12 +20,13 @@
 
 	interface Props {
 		onopenassistant: () => void;
+		onstartvoice: () => void;
 		onshortcut: (request: string) => void;
 		/** Why shortcuts are unavailable right now; empty when they can be used. */
 		shortcutBlockedReason: string;
 	}
 
-	let { onopenassistant, onshortcut, shortcutBlockedReason }: Props = $props();
+	let { onopenassistant, onstartvoice, onshortcut, shortcutBlockedReason }: Props = $props();
 
 	let home = $state<HomeState | null>(null);
 	let loading = $state(false);
@@ -110,20 +112,25 @@
 		{/if}
 	</div>
 
-	<button
-		type="button"
-		class="flex min-h-40 w-full items-center justify-between gap-4 overflow-hidden rounded-card p-5 text-left transition-colors surface-glass hover:border-accent-ink/60 lg:hidden"
-		onclick={onopenassistant}
+	<section
+		class="flex min-h-40 w-full items-center justify-between gap-4 overflow-hidden rounded-card p-5 surface-glass lg:hidden"
+		aria-labelledby="assistant-entry-heading"
 	>
-		<span>
-			<span class="block text-[1.0625rem] font-semibold">Ask your home</span>
-			<span class="mt-2 block text-sm text-ink-muted">Open the text assistant</span>
-			<span class="mt-4 flex items-center gap-1 text-sm font-semibold text-accent-ink"
-				>Start a conversation <ArrowUpRight size={16} aria-hidden="true" /></span
-			>
-		</span>
-		<span class="shrink-0"><AssistantOrb /></span>
-	</button>
+		<div class="min-w-0">
+			<h2 id="assistant-entry-heading" class="text-[1.0625rem] font-semibold">Ask your home</h2>
+			<p class="mt-2 text-sm text-ink-muted">Talk or type to check and control your home.</p>
+			<div class="mt-4 flex flex-wrap gap-2">
+				<button id="home-voice" type="button" class="btn btn-primary" onclick={onstartvoice}>
+					<Mic size={16} aria-hidden="true" /> Talk
+				</button>
+				<button type="button" class="btn btn-secondary" onclick={onopenassistant}>
+					<MessageCircle size={16} aria-hidden="true" /> Type
+				</button>
+			</div>
+		</div>
+		<span class="shrink-0 sm:hidden"><AssistantOrb size="nav" /></span>
+		<span class="shrink-0 max-sm:hidden"><AssistantOrb /></span>
+	</section>
 
 	{#if !configured}
 		<p class="notice notice-info">
