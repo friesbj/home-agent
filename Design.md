@@ -140,6 +140,7 @@ Use one outline icon set with rounded caps and a consistent stroke of about 1.75
 - Domain icons carry an accent color: amber for lights, cyan for climate, violet for scenes and night.
 - Navigation icons are neutral; the active destination uses a filled icon, the accent color, its label, and an underline indicator.
 - Colored icons reinforce meaning. Every icon that conveys status or triggers an action has a text label or an accessible name.
+- **App icon:** the orb, simplified for small sizes (three outlines, six nodes, brighter sphere) so that it stays recognizable at 16 px. `static/favicon.svg` is the source; `favicon.ico` (32 px) and `apple-touch-icon.png` (180 px, on the app background because iOS fills transparency with black) are rendered from it. `theme-color` is the app background `#0b142d`. When the orb changes, update the favicon too.
 
 ### Motion
 

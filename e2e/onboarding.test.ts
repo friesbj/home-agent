@@ -28,3 +28,19 @@ test('first run requires onboarding, then settings can manage and reset data', a
 	await expect(page).toHaveURL(/\/onboarding$/);
 	expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([]);
 });
+
+test('declares the app icons and serves them', async ({ page, request }) => {
+	await page.goto('/onboarding');
+	const links = await page
+		.locator('link[rel="icon"], link[rel="apple-touch-icon"]')
+		.evaluateAll((elements) => elements.map((element) => (element as HTMLLinkElement).href));
+	expect(links).toHaveLength(3);
+	for (const href of links) {
+		const response = await request.get(href);
+		expect(response.ok(), href).toBe(true);
+		expect((await response.body()).length, href).toBeGreaterThan(100);
+	}
+	const svg = links.find((href) => href.endsWith('.svg'));
+	expect((await request.get(svg as string)).headers()['content-type']).toContain('image/svg+xml');
+	await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b142d');
+});
