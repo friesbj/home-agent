@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { House, MessageCircle, Settings } from '@lucide/svelte';
 	import AssistantOrb from '$lib/components/AssistantOrb.svelte';
@@ -9,6 +10,7 @@
 
 	const manager = getChatSessionManager();
 	let mobileView = $state<'home' | 'assistant'>('home');
+	let assistantView = $state<HTMLElement>();
 	const serverLabel = $derived(
 		appConfig.settings.mcp.displayName ||
 			(appConfig.settings.mcp.url ? new URL(appConfig.settings.mcp.url).host : 'Not configured')
@@ -19,8 +21,19 @@
 		window.scrollTo({ top: 0 });
 	}
 
+	/**
+	 * Shows the Assistant and moves focus into it. The button that triggered this can disappear
+	 * with the Home view, and focus on a hidden element would fall back to the page body.
+	 */
+	async function showAssistant(focus: 'composer' | 'view') {
+		openMobileView('assistant');
+		await tick();
+		const target = focus === 'composer' ? document.getElementById('chat-input') : assistantView;
+		target?.focus({ preventScroll: true });
+	}
+
 	function runShortcut(request: string) {
-		if (manager.submitShortcut(request)) openMobileView('assistant');
+		if (manager.submitShortcut(request)) void showAssistant('view');
 	}
 </script>
 
@@ -70,7 +83,7 @@
 				aria-label="Home"
 			>
 				<HomeView
-					onopenassistant={() => openMobileView('assistant')}
+					onopenassistant={() => showAssistant('composer')}
 					onshortcut={runShortcut}
 					shortcutBlockedReason={manager.shortcutBlockedReason}
 				/>
@@ -78,12 +91,14 @@
 
 			<section
 				class={[
-					'min-h-0 lg:block lg:h-auto',
+					'min-h-0 outline-none lg:block lg:h-auto',
 					mobileView === 'assistant'
 						? 'h-[calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'
 						: 'hidden h-[calc(100dvh-12rem-env(safe-area-inset-bottom))]'
 				]}
 				aria-label="Assistant"
+				tabindex="-1"
+				bind:this={assistantView}
 			>
 				<ChatPanel />
 			</section>

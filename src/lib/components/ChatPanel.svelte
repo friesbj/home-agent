@@ -93,7 +93,9 @@
 </script>
 
 <section class="flex h-full min-h-0 flex-col lg:rounded-card lg:surface-glass" aria-label="Chat">
-	<div class="flex shrink-0 items-center gap-3 border-b border-white/10 p-2 max-lg:pl-14 lg:p-3">
+	<div
+		class="flex shrink-0 flex-wrap items-center gap-3 border-b border-white/10 p-2 max-lg:pl-14 lg:p-3"
+	>
 		{#if chat.messages.length > 0}
 			<span class="max-lg:hidden"><AssistantOrb size="header" /></span>
 		{/if}
@@ -101,7 +103,7 @@
 			<label for="chat-session" class="sr-only">Conversation</label>
 			<select
 				id="chat-session"
-				class="min-h-11 min-w-0 flex-1 field py-2 text-sm"
+				class="field min-h-11 min-w-32 flex-1 py-2 text-sm"
 				value={manager.id}
 				disabled={manager.switching || !manager.available}
 				onchange={(event) => selectSession(event.currentTarget.value)}
@@ -225,12 +227,14 @@
 	</div>
 
 	<form class="shrink-0 border-t border-white/10 p-3 max-lg:px-2" onsubmit={handleSubmit}>
-		<div class="flex items-end gap-2 field py-1.5 pr-1.5 pl-3 focus-within:border-accent-ink">
+		<div
+			class="flex field items-end gap-2 pr-1.5 pl-3 focus-within:border-accent-ink focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-accent-ink"
+		>
 			<label for="chat-input" class="sr-only">Message</label>
 			<textarea
 				id="chat-input"
 				rows="1"
-				class="[field-sizing:content] max-h-40 min-h-10 min-w-0 flex-1 resize-none border-0! bg-transparent! px-0 py-2 shadow-none! placeholder:text-ink-muted/80 focus:ring-0! focus-visible:outline-none!"
+				class="[field-sizing:content] max-h-[10.75rem] min-h-[3.25rem] min-w-0 flex-1 resize-none border-0! bg-transparent! px-0 py-3.5 shadow-none! placeholder:text-ink-muted/80 focus:ring-0! focus-visible:outline-none!"
 				placeholder="Message Home Agent…"
 				bind:value={input}
 				onkeydown={handleKeydown}
@@ -238,7 +242,7 @@
 			{#if busy}
 				<button
 					type="button"
-					class="btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-secondary"
+					class="mb-1.5 btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-secondary"
 					aria-label="Stop"
 					title="Stop"
 					onclick={() => chat.stop()}
@@ -248,7 +252,7 @@
 			{:else}
 				<button
 					type="submit"
-					class="btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-primary"
+					class="mb-1.5 btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-primary"
 					aria-label="Send"
 					title="Send"
 					disabled={!input.trim()}

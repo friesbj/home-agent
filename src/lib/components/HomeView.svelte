@@ -245,7 +245,7 @@
 		<section id="rooms" aria-labelledby="rooms-heading" aria-busy={loading}>
 			<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
 				<h2 id="rooms-heading" class="scroll-mt-6 text-lg font-semibold">Rooms</h2>
-				<div class="flex gap-1">
+				<div class="flex flex-wrap gap-1">
 					{#if filter}
 						<button type="button" class="btn btn-secondary" onclick={() => (filter = null)}>
 							Show all devices

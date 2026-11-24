@@ -37,12 +37,19 @@
 }
 
 .ambient-shell {
+	/* Long words, names, and addresses wrap instead of widening the layout. */
+	overflow-wrap: anywhere;
 	background:
 		radial-gradient(ellipse 70% 45% at 95% 0%, #35346d 0%, transparent 70%),
 		radial-gradient(ellipse 90% 35% at 15% 100%, #202654 0%, transparent 70%), var(--color-canvas);
 	background-attachment: fixed;
 	color: var(--color-ink);
 	color-scheme: dark;
+}
+
+/* A fieldset defaults to its content's minimum width, which can force horizontal scrolling. */
+fieldset {
+	min-width: 0;
 }
 
 /* Slim scrollbars that blend into the dark surfaces. */
@@ -167,6 +174,7 @@
 
 /* Dark form field on the solid surface; overrides the forms plugin defaults. */
 @utility field {
+	min-height: 2.75rem;
 	border: 1px solid var(--color-line-strong);
 	border-radius: var(--radius-control);
 	/* background-color only, so the forms plugin keeps the select arrow image. */
