@@ -4,6 +4,11 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T18:27:46+01:00
+
+- **Favicon (user request):** replaced the default Svelte logo with the orb. `static/favicon.svg` is the source (simplified for 16 px: three outlines, six nodes, brighter sphere); `static/favicon.ico` (32 px PNG in an ICO container) and `static/apple-touch-icon.png` (180 px on `#0b142d`) were rendered from it with Playwright. `src/app.html` declares the icons and `theme-color`; the unused import in `+layout.svelte` and `src/lib/assets/favicon.svg` are removed. New E2E test in `e2e/onboarding.test.ts` checks that the icons are declared and served. `Design.md` documents it.
+- **Validation:** `npm run check` (0 errors), ESLint on the test, full `npx playwright test` (37/37). Inspected the icon at 16, 32, 64, and 180 px.
+
 ### 2026-11-24T18:09:24+01:00
 
 - **M2a finalization:** Specified the voice mode and validated the design against measured criteria.

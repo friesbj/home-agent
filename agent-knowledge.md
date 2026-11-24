@@ -4,6 +4,10 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-24
 
+### 2026-11-24T18:27:46+01:00
+
+- **Favicon assets:** `static/favicon.ico` and `static/apple-touch-icon.png` are derived from `static/favicon.svg`; there is no generator script in the repository. Re-render them (for example with Playwright, transparent background for the ICO, full-bleed `#0b142d` for the touch icon) whenever the SVG changes.
+
 ### 2026-11-24T18:09:24+01:00
 
 - **Voice mode specification:** `Design.md` "Future Voice Mode" is the complete spec for M3. Decisions taken from the user's UX workspace prototype (a simulation with seven states and a state selector, mic never used): mute is a property of the microphone, not a state; the status word stays one constant color; exits are End and Back to text; first use shows one setup screen with "Allow microphone"; focus returns to the opener. Added by us: thinking/delegation and tool-use states, priority rules for overlapping states, real-signal-only orb motion, and confirmation focus handling. Open product decisions (transcript destination, spoken approval, hidden tab, voice samples) are in "Open Design Questions".
