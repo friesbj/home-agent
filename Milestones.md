@@ -100,7 +100,8 @@ M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 i
 - [ ] Implement tool-result continuation and confirmation handling; show confirmations on the solid confirmation surface in voice mode.
   - Open decision: whether a spoken confirmation may approve an action. Until decided, approval requires the on-screen control.
 - [ ] Add interrupt/cancel/continue behavior.
-- [ ] Build the voice stage first as a presentational component from fixed data, with a development-only state gallery that is excluded from production builds and component tests for every state in [Design.md](./Design.md#states-and-transitions); review it before connecting audio.
+- [~] Build the voice stage first as a presentational component from fixed data, with a development-only state gallery that is excluded from production builds and component tests for every state in [Design.md](./Design.md#states-and-transitions); review it before connecting audio.
+  - The presentation-only stage and gallery are implemented and tested; keep M3 on this first todo until the user reviews the gallery, then resolve the open voice decisions before connecting audio.
 - [ ] Build the voice mode screen: large orb, connection and microphone permission states, overlapping listening, speaking, and delegation states, tool activity, live captions, and error and reconnect states, each with a text equivalent and a reduced-motion variant.
 - [ ] Implement the first-use flow: a single setup screen with "Allow microphone" when permission or a key is missing, a clear blocked state when permission is denied, and text chat unaffected.
 - [ ] Make microphone muting disable the outgoing audio track and prove it with a test; keep the microphone indicator visible in every state.

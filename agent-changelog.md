@@ -4,6 +4,12 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T20:54:41+01:00
+
+- **M3 start — presentation-only voice stage:** Added `VoiceStage.svelte` with ready, permission, connecting, listening, speaking, delegation/tool, confirmation, muted, and error samples. It supports concurrent status chips, hidden captions, read/change activity, and a solid confirmation card; controls are inert without callbacks. Added `/dev/voice-states`, gated to development; the gallery and sample-state copy are absent from the production client bundle. No microphone, audio, OpenAI, or Home Assistant calls are made.
+- **Documentation alignment:** Reviewed the current [GPT-Live guide](https://developers.openai.com/api/docs/guides/live), WebRTC, delegation, and session-management docs plus OpenAI Live Console. Updated `AGENTS.md` from ephemeral credentials to the documented server SDP offer/answer exchange and `session.started` flow. The sample targets `gpt-live-1`, not the planned `gpt-live-1.1`, and uses a fictional read-only catalog.
+- **Validation:** `npm run check` (0 errors/warnings), `npx vitest run src/lib/components/VoiceStage.svelte.spec.ts` (13/13), targeted ESLint, `npm run build`, and a production client-bundle scan confirming the gallery is absent. Inspected the development gallery in a browser using fake setup values, then reset that test data. The build passed with existing Rollup annotation and adapter-auto environment warnings. M3 remains in progress pending user review and the open voice decisions; audio integration has not started.
+
 ### 2026-11-24T20:27:06+01:00
 
 - **M2a closed:** the user accepted the device acceptance (real iOS and Android browsers, on-screen keyboard, safe areas, screen reader, smoothness) on 2026-11-24, so the last open M2a todo is done. `Milestones.md` marks it `[x]` and notes that the agent did not run this check; `Design.md` no longer says the design is unimplemented or that voice specification and validation are open. Documentation only; no tests run.

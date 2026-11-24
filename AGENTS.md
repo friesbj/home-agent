@@ -38,7 +38,7 @@ This section is the implementation plan for future coding sessions.
 - Backend work is called delegation. The frontend/live model decides when to delegate, while the backend model reasons, uses tools, and returns results.
 - Configure the live model and backend model independently. Initial live model: `gpt-live-1.1`; backend model selection remains configurable.
 - The first GPT-Live implementation uses Responses delegation. Client delegation remains a documented later migration option.
-- The browser must obtain only an ephemeral session credential from the server.
+- For browser WebRTC, the trusted server exchanges the browser's SDP offer for an SDP answer using its configured OpenAI API key or, in the private browser-first MVP, the key supplied only to the same-origin server endpoint. Never send that key from the browser to OpenAI or return it as a Live credential; public production must use server-side key storage.
 - Home Assistant is reached through an existing MCP server.
 - The initial public-hosted MVP is a private testing phase with no login. It must be deployed only to an explicitly restricted environment, with no exposure to unrelated users.
 - Authentication, rate limiting, origin controls, session isolation, and explicit action authorization remain required before a generally available public release.
@@ -98,7 +98,8 @@ Create a server-only OpenAI adapter for the following duplex architecture:
 - Connect the browser microphone and speaker through WebRTC; carry JSON events on the data channel.
 - Stream live transcripts and connection state to the UI.
 - Apply the onboarding-selected voice.
-- Never send a long-lived OpenAI API key to the browser. Use an ephemeral session credential or connection offer exchange created by the server.
+- For WebRTC, the server exchanges the browser's SDP offer for an SDP answer with OpenAI and returns the answer to the browser; it does not return the API key or a reusable credential. Follow the private-MVP browser-storage exception above when the key is not configured on the server.
+- The HTTP session-creation request starts the Live session. Register the data-channel listeners before creating the offer, then wait for `session.started`; do not send `session.start` over the data channel.
 
 ### Backend/reasoning model
 
@@ -396,7 +397,7 @@ Before implementation:
 
 ## Phase 3: GPT-Live Full-Duplex MVP
 
-- Add ephemeral GPT-Live session creation on the trusted server.
+- Add trusted-server GPT-Live WebRTC session provisioning by exchanging the browser SDP offer for an SDP answer.
 - Establish the browser-to-GPT-Live WebRTC connection.
 - Apply the onboarding-selected voice to `gpt-live-1.1`.
 - Configure a separate backend reasoning model for delegation.

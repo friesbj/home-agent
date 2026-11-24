@@ -4,6 +4,11 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-24
 
+### 2026-11-24T20:52:37+01:00
+
+- **GPT-Live documentation reviewed for M3:** the current Live guide recommends browser WebRTC with the trusted server exchanging the browser SDP offer for an SDP answer via `POST /v1/live/sessions`; the HTTP request starts the session, the browser waits for `session.started`, and it must not send `session.start`. This replaces the earlier plan wording about returning an ephemeral session credential. Responses delegation supports MCP and custom functions, but the application still owns tool authorization and confirmations. The current OpenAI Live Console sample targets `gpt-live-1` and a fictional read-only catalog, so it is only a pattern reference, not validation of the planned `gpt-live-1.1` integration.
+- **M3 first slice:** `VoiceStage` and its development-only state gallery use fixed sample states and have no microphone, audio, or provider connection. Keep the audio integration behind the user's review of the gallery and resolution of the transcript-retention and hidden-tab decisions.
+
 ### 2026-11-24T20:27:06+01:00
 
 - **M2a is complete (user decision):** the design milestone, including device acceptance, is accepted. Next planned work is M3 (GPT-Live), which starts with the presentational voice stage and its state gallery as specified in `Design.md`; the open product decisions in "Open Design Questions" (transcript destination, spoken approval, hidden tab, voice samples) should be answered before or early in M3. The M2a branch `feat/m2a-mobile-design` is not yet merged into `main`.
