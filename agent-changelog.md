@@ -4,6 +4,11 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T10:30:00+00:00
+
+- **M2a mobile polish (user request):** On mobile, the Assistant view uses the full screen width without card border, and the page header becomes a transparent Home icon overlay. The composer in `ChatPanel.svelte` is a single field with the round Send/Stop button inside it, growing with its text up to about 160 px (all breakpoints). The mobile navigation bar is icon-only (accessible names unchanged), the orb keeps its size. `Design.md` documents the composer.
+- **Validation:** `npm run check`, ESLint on both files, and the home and chat-history E2E suites (14/14). Inspected at 390 px and 1280x900.
+
 ### 2026-11-24T00:15:00+01:00
 
 - **M2a composer (user request):** Send and Stop in `ChatPanel.svelte` are now round, icon-only 44 px buttons with `aria-label` and `title` set to "Send" and "Stop"; Stop uses a filled square. `Design.md` documents the pattern.
