@@ -89,27 +89,47 @@ Design direction: see [Design.md](./Design.md) for the living, project-wide "amb
 
 ## M3 - GPT-Live Full-Duplex MVP
 
-M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 implements it inside the Assistant view. Open product decisions that M3 needs answered are listed in [Design.md](./Design.md#open-design-questions): where retained voice transcripts go, whether a spoken confirmation may approve, and what happens to a session when the tab is hidden.
+M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 implements it inside the Assistant view. The product decisions for transcript retention, spoken confirmation, hidden tabs, tool routing, and voice samples are recorded in [Design.md](./Design.md#resolved-design-decisions).
 
-- [ ] Create trusted-server GPT-Live session provisioning.
-- [ ] Implement browser WebRTC microphone/speaker/audio tracks.
-- [ ] Add Live data-channel event handling.
-- [ ] Configure `gpt-live-1.1` separately from the backend reasoning model.
-- [ ] Implement Responses delegation, as decided in M0; client delegation remains a later option.
-- [ ] Connect delegated MCP/Home Assistant tools.
-- [ ] Implement tool-result continuation and confirmation handling; show confirmations on the solid confirmation surface in voice mode.
-  - Open decision: whether a spoken confirmation may approve an action. Until decided, approval requires the on-screen control.
-- [ ] Add interrupt/cancel/continue behavior.
-- [~] Build the voice stage first as a presentational component from fixed data, with a development-only state gallery that is excluded from production builds and component tests for every state in [Design.md](./Design.md#states-and-transitions); review it before connecting audio.
-  - The presentation-only stage and gallery are implemented and tested; keep M3 on this first todo until the user reviews the gallery, then resolve the open voice decisions before connecting audio.
-- [ ] Build the voice mode screen: large orb, connection and microphone permission states, overlapping listening, speaking, and delegation states, tool activity, live captions, and error and reconnect states, each with a text equivalent and a reduced-motion variant.
-- [ ] Implement the first-use flow: a single setup screen with "Allow microphone" when permission or a key is missing, a clear blocked state when permission is denied, and text chat unaffected.
-- [ ] Make microphone muting disable the outgoing audio track and prove it with a test; keep the microphone indicator visible in every state.
-- [ ] Implement stage focus management: focus moves to the primary control on open and returns to the opener on close; a pending confirmation gets an announcement and a focusable card with neither button preselected.
+- [x] Create trusted-server GPT-Live session provisioning.
+  - `POST /api/live/session` validates a bounded SDP offer, configures the selected voice and backend model with `gpt-live-1.1` Responses delegation, and returns the OpenAI session ID and SDP answer without exposing the API key. Existing request guards enforce same-origin, rate, and body-size checks.
+- [x] Implement browser WebRTC microphone/speaker/audio tracks.
+  - The browser acquires and releases the microphone, negotiates SDP through the same-origin server endpoint, waits for `session.started`, plays remote audio, supports mute, and closes after `session.closed`. Startup cancellation, audio-level speaking state, and the 60-second hidden-tab timeout are covered with browser API fakes.
+- [x] Add Live data-channel event handling.
+  - Validates JSON event envelopes; groups input/output transcript deltas by speaker and session-timeline intervals, and tracks Responses delegation lifecycle.
+- [x] Persist voice transcript turns to the active chat only when transcript retention is enabled; never persist audio.
+- [x] Configure `gpt-live-1.1` separately from the backend reasoning model.
+- [x] Configure Responses delegation for Live sessions; client delegation remains a later option.
+- [x] Connect delegated MCP/Home Assistant tools.
+  - `POST /api/live/session` registers the allowlisted MCP tools as Responses function tools (sequential calls). Without a reachable MCP server the session starts without tools and the backend is told so. MCP credentials never reach OpenAI.
+- [x] Implement tool-result continuation and confirmation handling; show confirmations on the solid confirmation surface in voice mode.
+  - The browser forwards each delegated call to `POST /api/live/tool`, returns the result as `function_call_output`, and sends `response.create` once the backend response has finished and every call has a result. Changes that need confirmation run only with a server-issued approval token bound to the session, call, tool, and arguments; denial, tampering, expiry, and reuse never execute. Verified with unit tests, a route test against the fake Home Assistant MCP server, and an end-to-end test of the stage.
+- [ ] Deferred beyond M3 (user decision, 2026-11-24): spoken approval of a pending confirmation. Confirmations are answered on screen; users who want a more fluid conversation can relax the confirmation policy in Settings.
+  - If taken up: decide how "unambiguous" is determined (for example an exact phrase list per language, matched against the user's transcript while the card is shown) and whether a spoken denial is accepted the same way.
+- [x] Add interrupt/cancel/continue behavior.
+  - Speaking over the assistant leaves delegated work running. Ending the session, leaving the stage, a lost connection, or the hidden-tab timeout abandons pending calls and confirmations; a change that was running or awaiting confirmation sets the text chat's "interrupted, outcome unknown" notice. `error` events no longer end the session; only `session.closed` or a lost connection does.
+- [x] Build the voice stage first as a presentational component from fixed data, with a development-only state gallery that is excluded from production builds and component tests for every state in [Design.md](./Design.md#states-and-transitions); review it before connecting audio.
+  - The user reviewed and approved the gallery on 2026-11-24. M3 decisions on transcript retention, hidden-tab timeout, spoken confirmation, app-function tools, and voice samples are recorded in [Design.md](./Design.md#resolved-design-decisions).
+- [x] Build the voice mode screen: large orb, connection and microphone permission states, overlapping listening, speaking, and delegation states, tool activity, live captions, and error and reconnect states, each with a text equivalent and a reduced-motion variant.
+  - The stage shows every state from real session signals, including tool activity, the confirmation card, a closing state, and non-fatal notices. A phone in landscape puts the orb beside the status and controls, short viewports shrink the orb, and reduced motion stops the stage's animations (checked in `e2e/voice.test.ts`). Back to text stays below the controls. The orb is still the static illustration; see the canvas todo.
+- [x] Implement the first-use flow: a single setup screen with "Allow microphone" when permission or a key is missing, a clear blocked state when permission is denied, and text chat unaffected.
+  - The stage reads the microphone permission when it opens: granted connects at once, undecided shows the setup screen with the privacy note, the voice, and a Settings link, refused shows "Microphone blocked" with "Try again". A missing key is known only to the server and appears as "Could not connect" with the server's message.
+- [x] Make microphone muting disable the outgoing audio track and prove it with a test; keep the microphone indicator visible in every state.
+- [x] Implement stage focus management: focus moves to the primary control on open and returns to the opener on close; a pending confirmation gets an announcement and a focusable card with neither button preselected.
+  - The card takes focus and is named and described by its title and summary; the assistant is told to announce the wait. Focus returns to whichever control opened the stage (navigation orb, Home card, or header button) and to the Assistant view when that control is no longer visible.
 - [ ] Render the orb states on canvas with a static SVG fallback for reduced motion; drive motion only from real audio levels and session state.
-- [ ] Switch the assistant entry points to voice once it works: microphone glyph and voice hint on the navigation orb and a voice offer in the Home entry card.
-- [ ] Keep text chat as fallback, reachable in the same Assistant view with a visible switch between voice and text.
-- [ ] Add GPT-Live integration tests with mocked MCP/Home Assistant services and component tests for the voice states.
+- [x] Switch the assistant entry points to voice once it works: microphone glyph and voice hint on the navigation orb and a voice offer in the Home entry card.
+  - The navigation orb shows a microphone, is named "Start voice mode", and opens the stage; the Home entry card offers Talk and Type. While a text response or confirmation is pending, the orb and Talk open the conversation instead. There is no separate visible hint line above the bar.
+- [x] Keep text chat as fallback, reachable in the same Assistant view with a visible switch between voice and text.
+  - The Assistant header has a Voice button; the stage has Back to text and Escape. The chat stays mounted and inert behind the stage.
+- [x] Add GPT-Live integration tests with mocked MCP/Home Assistant services and component tests for the voice states.
+  - `e2e/voice.test.ts` drives the stage against the real application server and the fake Home Assistant MCP server, with OpenAI, the microphone, and WebRTC faked.
+- [x] Verify one real GPT-Live session end to end (user-owned: needs an OpenAI key with GPT-Live access, a microphone, and a test Home Assistant).
+  - Event names, the function-call continuation, and the spoken confirmation announcement follow the documentation and have only run against fakes.
+  - 2026-11-24, user: a spoken conversation works in Chrome after three fixes found by this run (the trimmed SDP offer, unbound window functions, and the track order). Tool calls and confirmations in a real session are not yet reported.
+  - 2026-11-24, user: Firefox works as well, including a delegated backend response. It started working after the microphone was requested with explicit gain control and the user was asked to check the input device; which of the two made the difference is not known.
+  - 2026-11-24, user: tool calls work against the real service; lights and scenes on the user's Home Assistant were controlled by voice.
+  - 2026-11-24, user: the confirmation card appears and both Approve and Deny work against the real service.
 
 ## M4 - Smart-Home Dashboard
 
