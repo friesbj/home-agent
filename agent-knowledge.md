@@ -4,6 +4,15 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-24
 
+### 2026-11-24T18:09:24+01:00
+
+- **Voice mode specification:** `Design.md` "Future Voice Mode" is the complete spec for M3. Decisions taken from the user's UX workspace prototype (a simulation with seven states and a state selector, mic never used): mute is a property of the microphone, not a state; the status word stays one constant color; exits are End and Back to text; first use shows one setup screen with "Allow microphone"; focus returns to the opener. Added by us: thinking/delegation and tool-use states, priority rules for overlapping states, real-signal-only orb motion, and confirmation focus handling. Open product decisions (transcript destination, spoken approval, hidden tab, voice samples) are in "Open Design Questions".
+- **Workspace labels are swapped:** on that site, `voice-reference.png` is a chat screenshot and `chat-reference.png` is the wireframe orb. The images were only inspected temporarily and are not stored in the repository.
+- **Test environment:** the E2E server shares one rate limiter (default 30 requests per minute) across parallel tests, so many page loads surface as "Too many requests" and a missing Rooms region. `playwright.config.ts` raises the limit; production defaults are unchanged.
+- **Measuring contrast on gradients:** Axe cannot judge text over gradients and blur. `measureContrast` in `design-acceptance.test.ts` hides the text, screenshots the page, and samples the real pixels under each text box. Wait for smooth scrolling and Tailwind color transitions to finish first, or the result is wrong (a mid-scroll read reported 1.02:1).
+- **Layout hardening:** `overflow-wrap: anywhere` on the shell and `min-width: 0` on fieldsets keep long words from forcing horizontal scrolling at 200% text. A focus ring that sits on a field wrapper (composer) counts as the field's focus indicator.
+- **Not automated:** real iOS Safari and Android Chrome behavior with the on-screen keyboard, real screen readers, and mid-range phone smoothness remain the user's device acceptance.
+
 ### 2026-11-24T00:05:57+01:00
 
 - **Minimal settings (user requirement):** onboarding and Settings show only what every user needs to start: server address, access token, and OpenAI API key, plus the active confirmation rule. Add new options under "Advanced settings" unless all users need them to start. Hidden-field errors must open the disclosure and focus the field (`ESSENTIAL_FIELDS` in `SettingsForm.svelte`).

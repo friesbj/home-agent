@@ -4,6 +4,15 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-24
 
+### 2026-11-24T18:09:24+01:00
+
+- **M2a finalization:** Specified the voice mode and validated the design against measured criteria.
+  - `Design.md`: rewrote "Future Voice Mode" from the plan and the user's UX workspace prototype (entry points and first use, exits, layout for mobile and desktop, ten states with real signals and priority rules, confirmation in voice, canvas orb rendering, captions and transcripts, accessibility, development-only state gallery), updated the outdated Navigation text, added "Open Design Questions", "Verification Status", and the decisions below. `Milestones.md`: M2a voice specification and validation done; M3 gained the stage-first, first-use, mute, focus, and canvas-orb todos; added a user-owned device acceptance todo. `AGENTS.md`: testing strategy line.
+  - New `e2e/design-acceptance.test.ts` (21 tests): layout at ten sizes, 200% text, touch targets, Axe WCAG 2.x A/AA audit, rendered contrast measured on screenshots with the text hidden, keyboard focus, reduced motion. New dev dependency `@axe-core/playwright`.
+  - Fixes the checks found: `.field` had no 44 px minimum height (inputs were 42 px); a control that hid its own view dropped focus to the body, so `+page.svelte` now focuses the composer (entry card) or the Assistant view (shortcuts); horizontal scrolling at 200% text, fixed with `overflow-wrap: anywhere` on the shell, `min-width: 0` on fieldsets, and wrapping rows in `HomeView` and the `ChatPanel` header; the composer's textarea now fills the whole field and the field draws the 3 px focus ring.
+  - `playwright.config.ts` raises `RATE_LIMIT_MAX_REQUESTS` for the E2E server, because parallel tests share its 30-requests-per-minute limiter.
+- **Validation:** `npm run check` (0 errors), `npx eslint .` (clean), `npx vitest run` (90/90), `npx playwright test` (36/36). Mutation check: a weak secondary text color makes both the Axe audit and the contrast measurement fail. Inspected Home, Assistant with a pending confirmation, and Settings at 390 px and Home at 1280 px. Real devices, real screen readers, and the on-screen keyboard are not automated; see `Milestones.md`.
+
 ### 2026-11-24T11:00:00+00:00
 
 - **Scrollbars (user request):** `layout.css` defines slim 6 px scrollbars with a transparent track and a translucent violet thumb for all scroll areas (page, Home column, chat list, code and tables). Chromium and Safari use `::-webkit-scrollbar` (without arrow buttons); Firefox uses `scrollbar-width: thin` and `scrollbar-color` via `@supports not selector(::-webkit-scrollbar)`. `Design.md` documents it.
