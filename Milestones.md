@@ -80,12 +80,15 @@ Design direction: see [Design.md](./Design.md) for the living, project-wide "amb
 - [x] Redesign the Assistant view: text chat, session selection, Markdown, tool status, and approval presentation; keep input accessible and preserve the existing server-side approval flow.
   - [x] Give desktop Assistant a prominent central orb when the conversation is empty and a compact header orb when it contains messages; preserve chat state, visible composer, and confirmation priority.
 - [x] Apply the same design system to onboarding and Settings, including the optional display name, keeping credential notices, validation, connection testing, confirmation preferences, and reset safeguards visible and functional.
-- [ ] Specify the future voice screen and its listening, speaking, thinking, tool-use, confirmation, and error states; implement actual voice interaction only in M3.
-- [ ] Validate against the reference and across mobile, tablet, and desktop layouts: keyboard and screen-reader access, reduced motion, zoom, touch targets, and existing chat, settings, history, and approval workflows using mocked services.
+- [x] Specify the future voice screen and its listening, speaking, thinking, tool-use, confirmation, and error states; implement actual voice interaction only in M3.
+  - Specified in [Design.md](./Design.md#future-voice-mode) from the plan and the user's UX workspace prototype: entry points, first use and microphone permission, exits, layout for mobile and desktop, ten states with real signals and priority rules, confirmation in voice, orb rendering, captions, accessibility, and a development-only state gallery. Open product decisions are listed in Design.md under Open Design Questions.
+- [x] Validate against the reference and across mobile, tablet, and desktop layouts: keyboard and screen-reader access, reduced motion, zoom, touch targets, and existing chat, settings, history, and approval workflows using mocked services.
+  - Automated in `e2e/design-acceptance.test.ts` (layout at ten sizes, 200% text, touch targets, Axe, rendered contrast, keyboard focus, reduced motion); results and coverage are in [Design.md](./Design.md#verification-status). Findings fixed on the way: form fields at 42 px, lost focus after a control hid its own view, horizontal scrolling at 200% text, and a weakly visible composer focus. Compared visually with the reference at 390 px and desktop; deliberate differences are listed in Design.md.
+- [ ] Device acceptance (user): check real iOS Safari and Android Chrome with the on-screen keyboard and safe areas, a pass with a real screen reader (VoiceOver, TalkBack, or NVDA), and smoothness on a mid-range phone. These are not covered by the automated tests; the keyboard is emulated by a short viewport.
 
 ## M3 - GPT-Live Full-Duplex MVP
 
-M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 implements it inside the Assistant view.
+M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 implements it inside the Assistant view. Open product decisions that M3 needs answered are listed in [Design.md](./Design.md#open-design-questions): where retained voice transcripts go, whether a spoken confirmation may approve, and what happens to a session when the tab is hidden.
 
 - [ ] Create trusted-server GPT-Live session provisioning.
 - [ ] Implement browser WebRTC microphone/speaker/audio tracks.
@@ -96,8 +99,12 @@ M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 i
 - [ ] Implement tool-result continuation and confirmation handling; show confirmations on the solid confirmation surface in voice mode.
   - Open decision: whether a spoken confirmation may approve an action. Until decided, approval requires the on-screen control.
 - [ ] Add interrupt/cancel/continue behavior.
+- [ ] Build the voice stage first as a presentational component from fixed data, with a development-only state gallery that is excluded from production builds and component tests for every state in [Design.md](./Design.md#states-and-transitions); review it before connecting audio.
 - [ ] Build the voice mode screen: large orb, connection and microphone permission states, overlapping listening, speaking, and delegation states, tool activity, live captions, and error and reconnect states, each with a text equivalent and a reduced-motion variant.
-- [ ] Drive orb motion only from real audio levels and session state.
+- [ ] Implement the first-use flow: a single setup screen with "Allow microphone" when permission or a key is missing, a clear blocked state when permission is denied, and text chat unaffected.
+- [ ] Make microphone muting disable the outgoing audio track and prove it with a test; keep the microphone indicator visible in every state.
+- [ ] Implement stage focus management: focus moves to the primary control on open and returns to the opener on close; a pending confirmation gets an announcement and a focusable card with neither button preselected.
+- [ ] Render the orb states on canvas with a static SVG fallback for reduced motion; drive motion only from real audio levels and session state.
 - [ ] Switch the assistant entry points to voice once it works: microphone glyph and voice hint on the navigation orb and a voice offer in the Home entry card.
 - [ ] Keep text chat as fallback, reachable in the same Assistant view with a visible switch between voice and text.
 - [ ] Add GPT-Live integration tests with mocked MCP/Home Assistant services and component tests for the voice states.
