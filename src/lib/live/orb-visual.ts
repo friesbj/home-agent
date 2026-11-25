@@ -50,9 +50,9 @@ export function orbFrame(orb: OrbVisual, level: number, timeMs: number): OrbFram
 		case 'thinking':
 			return { mode: 'dashes', pulse: 1, glow: 0.4, rotation: (timeMs / 24000) * TAU };
 		case 'listening':
-			return { mode: 'rings', pulse: 1 + value * 0.18, glow: 0.3 + value * 0.45, rotation: 0 };
+			return { mode: 'rings', pulse: 1 + value * 0.12, glow: 0.4 + value * 0.5, rotation: 0 };
 		case 'speaking':
-			return { mode: 'rings', pulse: 1.05 + value * 0.3, glow: 0.55 + value * 0.4, rotation: 0 };
+			return { mode: 'rings', pulse: 1.04 + value * 0.18, glow: 0.65 + value * 0.35, rotation: 0 };
 		default:
 			return STILL;
 	}

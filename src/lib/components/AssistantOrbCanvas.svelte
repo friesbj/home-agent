@@ -6,6 +6,9 @@
 
 	let canvas = $state<HTMLCanvasElement>();
 	const TAU = Math.PI * 2;
+	// The canvas is larger than the sphere so the pulse and its glow have room and
+	// are not clipped at the canvas edge. The sphere keeps the wrapper's footprint.
+	const OVERSCAN = 1.5;
 
 	// The canvas draws the moving aura over the static sphere. With reduced motion
 	// or without a 2D context it stays blank, leaving the SVG sphere as the fallback.
@@ -45,31 +48,50 @@
 			if (shape.mode !== 'none') {
 				const cx = width / 2;
 				const cy = height / 2;
-				const base = Math.min(width, height) / 2;
+				// The sphere fills the inner part of the canvas; the rest is pulse headroom.
+				const core = Math.min(width, height) / 2 / OVERSCAN;
 				if (shape.mode === 'rings') {
-					for (const [index, spread] of [0.82, 0.93].entries()) {
+					// Soft halo that widens and brightens with the audio level.
+					const auraR = core * (1 + smoothed * 0.45);
+					const aura = context.createRadialGradient(cx, cy, core * 0.55, cx, cy, auraR);
+					aura.addColorStop(0, `rgba(143, 191, 255, ${shape.glow * 0.45})`);
+					aura.addColorStop(1, 'rgba(143, 191, 255, 0)');
+					context.fillStyle = aura;
+					context.beginPath();
+					context.arc(cx, cy, auraR, 0, TAU);
+					context.fill();
+					// Rings that hug the sphere edge and breathe outward, with a glowing blur.
+					context.save();
+					context.shadowBlur = core * (0.1 + shape.glow * 0.14);
+					context.shadowColor = `rgba(159, 201, 255, ${shape.glow})`;
+					context.lineWidth = core * 0.04;
+					for (const [index, spread] of [0.86, 0.98].entries()) {
 						context.beginPath();
-						context.arc(cx, cy, base * spread * shape.pulse, 0, TAU);
-						context.strokeStyle = `rgba(143, 191, 255, ${shape.glow * (index === 0 ? 0.55 : 0.3)})`;
-						context.lineWidth = base * 0.03;
+						context.arc(cx, cy, core * spread * shape.pulse, 0, TAU);
+						context.strokeStyle = `rgba(182, 214, 255, ${shape.glow * (index === 0 ? 0.7 : 0.45)})`;
 						context.stroke();
 					}
+					context.restore();
 				} else if (shape.mode === 'arc') {
+					context.save();
+					context.shadowBlur = core * 0.2;
+					context.shadowColor = `rgba(127, 220, 255, ${shape.glow})`;
 					context.beginPath();
-					context.arc(cx, cy, base * 0.9, shape.rotation, shape.rotation + Math.PI / 2);
+					context.arc(cx, cy, core * 1.02, shape.rotation, shape.rotation + Math.PI / 2);
 					context.strokeStyle = `rgba(127, 220, 255, ${shape.glow})`;
-					context.lineWidth = base * 0.045;
+					context.lineWidth = core * 0.05;
 					context.lineCap = 'round';
 					context.stroke();
+					context.restore();
 				} else {
 					context.save();
 					context.translate(cx, cy);
 					context.rotate(shape.rotation);
-					context.setLineDash([base * 0.12, base * 0.12]);
+					context.setLineDash([core * 0.12, core * 0.12]);
 					context.beginPath();
-					context.arc(0, 0, base * 0.9, 0, TAU);
+					context.arc(0, 0, core * 1.0, 0, TAU);
 					context.strokeStyle = `rgba(182, 214, 255, ${shape.glow})`;
-					context.lineWidth = base * 0.03;
+					context.lineWidth = core * 0.03;
 					context.stroke();
 					context.restore();
 				}
@@ -129,10 +151,14 @@
 		grid-area: 1 / 1;
 		width: 100%;
 	}
+	/* Larger than the sphere so the pulse and glow are not clipped; layout stays the sphere size. */
 	canvas {
-		grid-area: 1 / 1;
-		width: 100%;
-		height: 100%;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 150%;
+		height: 150%;
+		transform: translate(-50%, -50%);
 		pointer-events: none;
 	}
 </style>
