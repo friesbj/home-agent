@@ -56,6 +56,12 @@ This section is the implementation plan for future coding sessions.
 - Delegated function calls arrive on the browser's Live data channel. The browser forwards each call to `POST /api/live/tool`, which authorizes it against the tool allowlist and the confirmation policy, runs it through the MCP gateway, and returns the text for the `function_call_output`; the browser then continues the backend response. A change that needs confirmation runs only with an approval token that the server issued for exactly that session, call, tool, and arguments (HMAC with `TOOL_APPROVAL_SECRET`, five-minute lifetime, single use per server process).
 - Speaking over the assistant does not cancel delegated work. Ending the voice session or leaving the stage abandons pending tool calls and confirmations; a change that was running or awaiting confirmation is reported in the text chat as interrupted with an unknown outcome.
 - Voice sample playback is deferred beyond M3 to avoid extra provider usage.
+- M3a makes the product voice first (user decisions, 2026-11-25; planned, not yet implemented). Text and voice are one conversation: voice turns are always written into the active chat, turn by turn, and stored like typed messages while chat history is on. The transcript-retention setting is removed, which replaces the earlier rule that voice transcripts are kept only after an explicit opt-in.
+- In M3a, ending a voice conversation leaves voice mode and shows the text view with the transcript; there is no "Back to text". A conversation also ends after 60 seconds without speech from either side.
+- In M3a, a new voice session receives the recent text of the current conversation. Home stays the start view with the orb as the main action, and voice never starts by itself.
+- In M3a, the tool calls of a voice conversation appear in the chat as the same cards as in a typed conversation. Confirmations of a voice conversation are still answered on the stage; a card in the chat never offers Approve or Deny, and a stored card can never be executed or approved again.
+- Voice behaves the same on every screen size, and the stage stays a modal view over the whole app. A conversation is never ended by voice (user decisions, 2026-11-25).
+- In M3a, the GPT-Live voice is chosen from a list that describes each voice (character, language, regional influence, feminine or masculine presentation) instead of being typed. The list is a catalog kept in the application and taken from OpenAI's documentation and Playground. It contains only the voices that OpenAI documents as natural voices; no other voice can be chosen or typed, and a stored voice outside the catalog is replaced by the default, which becomes `gleam`. Sample playback remains deferred.
 - M2 follow-up: text history is organized into selectable chat sessions. A new tab, browser restart, or page reload starts a new session; returning from Settings keeps the active session. Delete the legacy v1 chat history during the transition instead of migrating it; retain settings and credentials.
 - Switching chat sessions cancels in-progress responses and pending confirmations; already-started device actions may have an unknown outcome and must not be assumed undone.
 - Mutating Home Assistant actions can require confirmation according to the user's onboarding/settings preference.
@@ -417,6 +423,17 @@ Before implementation:
 - Return tool and MCP results to GPT-Live and allow it to continue speaking independently.
 - Support interruption, cancellation/continuation policy, and text fallback.
 - Build the voice mode specified in `Design.md` inside the Assistant view and switch the assistant entry points to voice.
+
+## Phase 3a: Voice-First Refinement
+
+- Treat text and voice as one conversation: write voice turns into the chat turn by turn and remove the transcript-retention setting
+- Pass the recent text of the conversation to a new voice session
+- End a voice conversation by leaving voice mode to the text view; remove "Back to text" and the Ready state
+- End a conversation after 60 seconds without speech from either side
+- Make voice the primary action in the text view
+- Show the tool calls of a voice conversation as cards in the chat, without confirmation controls
+- Update the storage notices and the data rules for voice transcripts
+- Replace the typed voice name with a voice picker that describes each voice
 
 ## Phase 4: Smart-Home Dashboard
 

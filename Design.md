@@ -403,6 +403,20 @@ Later milestones add capabilities to the views that M2a designs. They extend the
 - Confirmations in voice mode use the same solid confirmation card as text and are answered on screen; the server validates the request.
 - Build the presentational stage and the orb states first, from fixed data, and review every state before audio is connected.
 
+### M3a: Voice First
+
+Planned; decided with the user on 2026-11-25. Once implemented it revises the parts of [Future Voice Mode](#future-voice-mode) named here.
+
+- **One conversation, two ways of input.** The chat is the record, and voice writes into it. Spoken turns appear in the chat as they are said, carry a small microphone symbol, and are stored like typed messages. There is no transcript setting.
+- **Nothing goes "back".** The stage has no "Back to text" and no Ready state. During a conversation its controls are the microphone and End. End, Escape, 60 seconds without speech from either side, 60 seconds in a hidden tab, and the session's time limit all end the conversation and close the stage; the automatic ones leave a notice in the text view that says why. The setup, blocked, and error screens offer Close. Speech never ends a conversation: asked to end it, the assistant points to End.
+- **Actions in the chat:** every tool call of a voice conversation appears in the chat as the card of the text mode, at the place where it happened: a read or a change, with its summary, status, and result. Confirmations are still answered on the stage, so a card in the chat never offers Approve or Deny; it shows that a change is waiting and then its outcome. A call that was cut off by the end of the conversation shows as interrupted with an unknown outcome.
+- **The same on every screen size:** starting, ending, and the transcript work on tablet and desktop as on a phone.
+- **After the end** the text view shows the transcript, on a phone also when voice was started from Home. Focus goes to the voice control, not into the message field.
+- **Voice is the primary action in the text view:** a microphone control at the composer, and the orb of the empty Assistant starts a conversation. Home stays the start view with the orb as the main action; voice never starts by itself.
+- **Continuity:** a voice conversation knows the recent messages of the chat it belongs to, and later typed messages follow from what was said.
+- **Choosing a voice:** onboarding and Settings list the voices instead of asking for a name. Each entry gives what a user needs to choose without knowing the names: the voice's name, its character in a few words ("Warm and conversational", "Clear and direct"), its language and regional influence, and whether it sounds feminine or masculine. The list can be searched by name and filtered by language and presentation, and it marks the current voice. The entries use the existing surfaces, tags, and form patterns of this design system; the OpenAI Playground is the model for the information, not for the look. The list contains only the voices that OpenAI documents as natural voices, and Gleam is the default. There is no entry or field for any other voice. Playing a sample stays out of scope.
+- **Unchanged:** the stage stays a modal view over the whole app on every screen size (full screen on a phone, a centered panel over the dimmed app on larger screens) and does not move into the Assistant panel; captions stay off by default, and confirmations are answered on screen.
+
 ### M4: Live Data and Direct Control
 
 - **Live status:** a labeled live indicator replaces the fetch time and manual refresh. When the connection drops, Home shows the time of the last known state and that it is reconnecting; stale data is never presented as live.
@@ -438,6 +452,7 @@ These questions were open in the plan and were decided during M2a implementation
 - **M3 transcript retention (user decision):** when enabled, voice turns join the active text-chat session; when disabled, they are transient and disappear with the voice stage.
 - **M3 background sessions (user decision):** end a running voice session after 60 seconds with the tab hidden.
 - **M3 captions (user decision, 2026-11-25):** captions are hidden by default and have no prominent heading; the stage is about speaking, and a user who wants the text turns it on.
+- **M3a voice first (user decisions, 2026-11-25; planned):** see [M3a: Voice First](#m3a-voice-first). When implemented, it replaces the transcript-retention decision above (the transcript always joins the chat) and the rule that End leaves the stage open in the Ready state.
 - **M3 spoken approval (user decision, revised 2026-11-24):** deferred. Confirmations in voice are answered with the on-screen controls; a user who wants a more fluid conversation can relax the confirmation policy in Settings. If it is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve.
 - **M3 tool bridge (user decision):** expose application function tools through Responses delegation and route execution through the server MCP gateway, without sending MCP credentials to OpenAI's hosted MCP tool runner.
 - **Voice sample previews (user decision):** defer sample playback beyond M3 to avoid extra provider usage.

@@ -4,6 +4,18 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-25
 
+### 2026-11-25T08:45:00+01:00
+
+- **Planning (M3a, scope revised by the user):** added the tool calls of a voice conversation as cards in the chat (three todos), the same voice behavior on every screen size, and the rule that a conversation is never ended by voice; rewrote the "Not in M3a" line. Changed `Milestones.md`, `Design.md`, `AGENTS.md`, and `agent-knowledge.md`. No source code changed.
+- **Validation:** documentation only; Prettier passes on the changed files.
+
+### 2026-11-25T08:35:00+01:00
+
+- **Planning (M3a):** added the milestone "M3a - Voice-First Refinement" to `Milestones.md` with the user's decisions and its todos, the section "M3a: Voice First" to `Design.md`, the planned decisions and "Phase 3a" to `AGENTS.md`, and an entry in `agent-knowledge.md`. No source code changed.
+- **Planning (M3a, voice picker):** added the user's request for a described voice list instead of the typed voice name: a voice catalog, the picker with search and filters, and handling of voices outside the catalog, in the same four files.
+- **Planning (M3a, natural voices only):** narrowed the voice picker after the user's decisions: the catalog holds only the voices OpenAI documents as natural, the default changes from `marin` to `gleam`, and the list is closed (no typed ID, no "Other voice"; a stored voice outside the catalog falls back to the default). Updated `Milestones.md`, `Design.md`, `AGENTS.md`, and `agent-knowledge.md`.
+- **Validation:** documentation only; Prettier passes on the changed files.
+
 ### 2026-11-25T00:15:00+01:00
 
 - **M3 voice stage (`src/lib/components/VoiceStage.svelte`, `src/routes/+page.svelte`):** captions are hidden by default. The "Captions" heading is gone; a small "Show captions" / "Hide captions" text control toggles them during a conversation, and the page remembers the choice while it is open.

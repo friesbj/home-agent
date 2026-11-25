@@ -131,6 +131,51 @@ M2a specifies the voice mode in [Design.md](./Design.md#future-voice-mode); M3 i
   - 2026-11-24, user: tool calls work against the real service; lights and scenes on the user's Home Assistant were controlled by voice.
   - 2026-11-24, user: the confirmation card appears and both Approve and Deny work against the real service.
 
+## M3a - Voice-First Refinement
+
+Planned with the user on 2026-11-25; not started. The product is voice first: speaking is the default way to use the assistant, and text is the record of the conversation and the fallback. Text and voice are one conversation with two ways of input, so nothing "goes back to text": a voice conversation ends, and the text view underneath shows what was said. The design is described in [Design.md](./Design.md#m3a-voice-first).
+
+User decisions:
+
+- The transcript of a voice conversation is always part of the chat. The transcript-retention setting is removed; voice turns are stored like typed messages while chat history is on.
+- Voice turns appear in the chat turn by turn during the conversation, not only at its end.
+- A voice session knows the recent messages of the current conversation.
+- Ending a conversation leaves voice mode and always shows the text view with the transcript, wherever voice was started.
+- A conversation ends by itself after 60 seconds without speech from either side.
+- Home stays the start view and the orb is the main action. Voice does not start by itself when the app opens.
+- Voice behaves the same on every screen size: starting, ending, and the transcript in the chat work on tablet and desktop as on a phone. The stage stays a modal view over the whole app, full screen on a phone and a centered panel over the dimmed app on larger screens; it does not move into the Assistant panel.
+- A conversation is never ended by voice. It ends through End, Escape, or one of the automatic ends.
+- The tool calls of a voice conversation appear in the chat as cards, as they do in a typed conversation.
+- The voice is chosen from a described list instead of typed (user decision, 2026-11-25): what matters is the information per voice, as in the OpenAI Playground: its character (for example "Warm and conversational"), language, regional influence, and whether it sounds feminine or masculine. The look of the Playground is not the model.
+- The list offers only the voices that OpenAI documents as natural voices; generated voices are left out. Nothing else can be chosen: there is no field for typing a voice ID, and a stored voice that is not in the list is replaced by the default. The default voice becomes Gleam (`gleam`) instead of `marin`, which OpenAI's documentation does not classify.
+
+Todos:
+
+- [ ] Make the transcript standard: remove `history.retainTranscripts` from the settings schema, onboarding, and Settings, and ignore a stored value. Voice turns join the chat in every conversation and are saved with it while chat history is on.
+- [ ] Write voice turns into the chat turn by turn: the session reports each turn as it forms and grows, and the chat inserts or updates one message per turn in spoken order, so that a closed or crashed tab loses nothing.
+  - The provider sends fragments without turn boundaries, so a turn can still grow after it first appears in the chat.
+- [ ] Mark spoken messages in the chat with a small microphone symbol and an accessible label, and store the marker with the message.
+- [ ] Give a new voice session the recent text of the current conversation (`session.input`; text only, limited in count and size, validated by the server).
+- [ ] End means leave: remove "Back to text" and the Ready state with "Start conversation". During a conversation the controls are the microphone and End; End and Escape end the session and close the stage. The setup, blocked, and error screens offer Close instead.
+  - Speech never ends a conversation. The Live instructions say that the assistant cannot end it, so that it does not claim to have done so and points to End when asked.
+- [ ] After a conversation ends, show the text view with the transcript on every screen size, on a phone also when voice was started from Home. Move focus to the Assistant's voice control, not into the message field, so that no on-screen keyboard opens.
+- [ ] End a conversation after 60 seconds without speech from either side, then leave to the text view with a notice that says why. Time does not count while delegated work runs or a confirmation is waiting; settle during implementation how long a waiting confirmation may keep a session open.
+- [ ] Treat the hidden-tab timeout and the session's time limit like the idle end: leave to the text view with a notice. A failed or lost connection keeps the stage open with "Try again" and "Close".
+- [ ] Make voice the primary action in the text view: a microphone control at the composer, and the orb of the empty Assistant as a "tap to talk" control; the separate Voice button in the header goes away. Voice stays unavailable while a text response or confirmation is pending.
+- [ ] Show the tool calls of a voice conversation in the chat with the card of the text mode (`ToolCallCard`): reads and changes, each at the place in the conversation where it happened, with its summary, status, and result. The card appears when the call starts, is updated when it settles, and is stored with the chat like the cards of a typed conversation.
+- [ ] Keep confirmations on the stage: in the chat, the card of a change that waits for confirmation shows the waiting state without Approve and Deny, and then the outcome (done, failed, or not executed). A call that was still running or waiting when the conversation ended or the tab closed shows as interrupted with an unknown outcome, also after a reload, and never as running or confirmable.
+- [ ] Keep typed messages working after a voice conversation: the text endpoint accepts a chat that contains voice cards, and nothing in a stored card can be executed or approved again. Settle during implementation whether the text model receives these cards as tool calls with results or only the spoken text.
+- [ ] Add a voice catalog to the application with the natural GPT-Live voices only: for each voice its name, API name, character line, language, regional influence, and presentation (feminine or masculine). Take every value from OpenAI's documentation or Playground and record the source and date; never invent a description. A voice without a known character line shows none. The catalog replaces `VOICE_SUGGESTIONS`.
+  - Known on 2026-11-25: the Live documentation lists 28 voices, 24 of them natural (all except Quartz, Beacon, Delta, and Cinder), with language, regional influence, and presentation. Character lines are known for seven of the 24 from the user's Playground screenshot (Gleam, Ripple, Vesper, Willow, Stone, Meridian, Bossa); the other 17 still have to be collected. The older voices such as `marin` are not classified in the documentation and stay out until OpenAI lists them as natural.
+- [ ] Replace the free-text voice field in onboarding and Settings with a voice picker built on the catalog: one entry per voice with its name, character line, language, regional influence, and presentation; the current voice is marked. Offer a search by name and filters for language and presentation. It is a single-choice control that works with the keyboard and a screen reader, has touch targets of at least 44 px, and fits a 320 px screen.
+- [ ] Allow only voices of the catalog: change the default voice from `marin` to `gleam`, replace a stored voice that is not in the catalog with the default when settings are loaded, and let the settings schema and the Live session endpoint accept only catalog voices. A newly released voice becomes available by adding it to the catalog.
+- [ ] Show the chosen voice by name and character line wherever the voice is mentioned, for example on the stage's first-use screen.
+- [ ] Update the wording that depends on these decisions: the first-use note on the stage, the storage notices, `README.md`, and the data rules in `AGENTS.md` that require explicit consent for voice transcripts.
+- [ ] Tests: turn-by-turn chat updates and their order, removal of the setting, context seeding and its limits, leaving on End, idle and hidden-tab ends with their notices, focus after leaving, the end-to-end voice flows without "Back to text" at phone and desktop size, the voice picker (choosing, searching, filtering, keyboard use, a stored voice outside the catalog falling back to the default, and the session endpoint rejecting such a voice), and the cards of voice tool calls (order, each outcome, no Approve or Deny in the chat, interrupted calls after a reload, and a typed message after a voice conversation).
+- [ ] Verify with the real service (user-owned): the transcript and the action cards in the chat after a conversation, the 60-second idle end, and a spoken follow-up that refers to an earlier typed message.
+
+Not in M3a: typing during a voice conversation, and playing a sample of a voice in the picker (not needed for now; every preview would use the provider). Decided against, not only postponed: ending a conversation by voice, and voice inside the Assistant panel on desktop.
+
 ## M4 - Smart-Home Dashboard
 
 M2a delivers the Home layout, read-only summaries, rooms, and assistant shortcuts. M4 adds live data and direct control within that design; see [Design.md](./Design.md#design-requirements-for-later-milestones).
