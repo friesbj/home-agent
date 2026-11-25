@@ -30,7 +30,12 @@ function serve(state: Omit<HomeState, 'fetchedAt'>) {
 
 function renderHome(shortcutBlockedReason = '') {
 	const onshortcut = vi.fn();
-	render(HomeView, { onopenassistant: vi.fn(), onshortcut, shortcutBlockedReason });
+	render(HomeView, {
+		onopenassistant: vi.fn(),
+		onstartvoice: vi.fn(),
+		onshortcut,
+		shortcutBlockedReason
+	});
 	return onshortcut;
 }
 

@@ -2,7 +2,116 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-25
+
+### 2026-11-25T08:55:00+01:00
+
+- **Changed:** finalized M3 by rendering the voice-stage orb on canvas.
+  - New `src/lib/live/orb-visual.ts`: pure motion model (`orbFrame`, `orbAnimates`); listening and speaking scale pulse and glow with the audio level, connecting and thinking rotate with time, other states are still.
+  - New `src/lib/components/AssistantOrbCanvas.svelte`: draws the moving aura over the static `AssistantOrb` sphere; stays blank under reduced motion or without a 2D context, so the SVG sphere is the fallback.
+  - `src/lib/live/live-session.ts`: the measure loop tracks the loud side of the conversation as a smoothed `audioLevel` getter, reset with the session.
+  - `src/lib/components/VoiceStage.svelte`: uses the canvas orb with a `getLevel` prop and drops the CSS keyframes for the connecting, listening, speaking, and thinking states (static state transforms kept).
+  - `src/routes/+page.svelte`: passes `getLevel={() => liveSession.audioLevel}`.
+- **Tests:** `orb-visual.spec.ts` (motion maths), `AssistantOrbCanvas.svelte.spec.ts` (canvas over the SVG), and a controller test that `audioLevel` rises with sound and decays in silence.
+- **Validation:** `npm run check` 0 errors; `npx vitest run` 174 passed; `npx playwright test e2e/voice.test.ts` 3 passed (including the reduced-motion check of 0 running CSS animations); `npx eslint .` clean; Prettier clean on the changed files.
+- **Milestone:** M3 - Render the orb states on canvas.
+
+### 2026-11-25T08:45:00+01:00
+
+- **Planning (M3a, scope revised by the user):** added the tool calls of a voice conversation as cards in the chat (three todos), the same voice behavior on every screen size, and the rule that a conversation is never ended by voice; rewrote the "Not in M3a" line. Changed `Milestones.md`, `Design.md`, `AGENTS.md`, and `agent-knowledge.md`. No source code changed.
+- **Validation:** documentation only; Prettier passes on the changed files.
+
+### 2026-11-25T08:35:00+01:00
+
+- **Planning (M3a):** added the milestone "M3a - Voice-First Refinement" to `Milestones.md` with the user's decisions and its todos, the section "M3a: Voice First" to `Design.md`, the planned decisions and "Phase 3a" to `AGENTS.md`, and an entry in `agent-knowledge.md`. No source code changed.
+- **Planning (M3a, voice picker):** added the user's request for a described voice list instead of the typed voice name: a voice catalog, the picker with search and filters, and handling of voices outside the catalog, in the same four files.
+- **Planning (M3a, natural voices only):** narrowed the voice picker after the user's decisions: the catalog holds only the voices OpenAI documents as natural, the default changes from `marin` to `gleam`, and the list is closed (no typed ID, no "Other voice"; a stored voice outside the catalog falls back to the default). Updated `Milestones.md`, `Design.md`, `AGENTS.md`, and `agent-knowledge.md`.
+- **Validation:** documentation only; Prettier passes on the changed files.
+
+### 2026-11-25T00:15:00+01:00
+
+- **M3 voice stage (`src/lib/components/VoiceStage.svelte`, `src/routes/+page.svelte`):** captions are hidden by default. The "Captions" heading is gone; a small "Show captions" / "Hide captions" text control toggles them during a conversation, and the page remembers the choice while it is open.
+- **Docs and tests:** `Design.md` records the decision; the component test and `e2e/voice.test.ts` expect captions only after "Show captions".
+- **Validation:** `npm run check`, `npx vitest run` (165/165), `npx eslint .`, and `npm run test:e2e` (40/40) pass; screenshots of the stage with captions hidden and shown were reviewed.
+
 ## 2026-11-24
+
+### 2026-11-24T23:55:00+01:00
+
+- **M3 first use (`src/lib/live/live-session.ts`, `src/lib/components/VoiceStage.svelte`):** the stage checks the microphone permission on opening and connects at once, shows a setup screen (privacy note, voice, Settings link, "Allow microphone"), or shows "Microphone blocked" with "Try again". Start failures are titled "Could not connect"; a missing microphone has its own message.
+- **M3 entry points (`src/routes/+page.svelte`, `src/lib/components/HomeView.svelte`):** the navigation orb shows a microphone and starts voice mode; the Home entry card offers Talk and Type; focus returns to the control that opened the stage. Voice entry points open the text conversation while it is busy or awaiting approval.
+- **M3 stage layout:** landscape phone layout with the orb beside the controls, a smaller orb on short viewports, no stage animation with reduced motion, full-width single-button control rows.
+- **Decisions recorded:** spoken approval deferred; real-service verification complete (`AGENTS.md`, `Design.md`, `Milestones.md`).
+- **Tests:** controller tests for `prepare()`, refused versus dismissed permission, and failed starts; `VoiceStage` tests for the setup and blocked screens; `e2e/voice.test.ts` covers auto-connect with a granted permission, the first-use screen, reduced motion, focus return to the orb, and the landscape layout; existing end-to-end tests open the text Assistant through Type.
+- **Validation:** `npm run check`, `npx vitest run` (165/165), `npx eslint .`, and `npm run test:e2e` (40/40, Chromium, includes the build) pass. Screenshots of Home, the first-use screen, and the landscape stage were reviewed. `npm run lint` still fails on Prettier warnings in files this work did not touch. The canvas orb remains.
+
+### 2026-11-24T23:32:00+01:00
+
+- **Docs:** `Milestones.md` and `agent-knowledge.md` record the user's report that voice tool calls control lights and scenes on a real Home Assistant, and that the confirmation and denial paths still lack a real-service report. No code changed.
+
+### 2026-11-24T23:30:00+01:00
+
+- **Docs:** `Milestones.md` and `agent-knowledge.md` record that voice conversations now work in Chrome and Firefox against the real service (user report), the event sequence seen there, and that real tool calls and confirmations remain unverified. Corrected a code comment in `src/lib/live/live-session.ts` that named the byte rate as a speech indicator; the user's measurements show it is not one.
+- **Validation:** comment and documentation only; Prettier and ESLint pass on the changed files.
+
+### 2026-11-24T23:22:00+01:00
+
+- **M3 (`src/lib/live/live-session.ts`, `src/lib/live/audio-level.ts`):** the microphone is requested with explicit echo cancellation, noise suppression, and automatic gain control; level meters read float samples instead of 8-bit samples; the microphone hint now reads "Little or no sound is arriving from your microphone"; the development console reports the microphone's peak level and the bytes sent every 3 seconds. Removed the unused `isAudioActive`.
+- **Reason:** the user's Firefox console showed a correct media negotiation but a microphone level at the noise floor and silence-sized packets.
+- **Validation:** `npm run check`, `npx vitest run` (160/160), `npx eslint .`, and `npm run test:e2e` (39/39, Chromium) pass; the voice test without the Axe audit also passes in Playwright's Firefox. Whether Firefox now recognizes speech is with the user.
+
+### 2026-11-24T23:12:00+01:00
+
+- **Fix (M3):** the Speaking state holds for 0.8 seconds after the last measured sound (`src/lib/live/live-session.ts`), and `VoiceStage` reserves the height of the overlapping-state chips; in a real Chrome conversation the status flipped between Speaking and Listening and the stage jumped.
+- **Diagnostics:** development console lines for the offer's and answer's media sections and the microphone track state, for the open Firefox problem.
+- **Docs:** `Milestones.md` records the user's Chrome result and the blocked Firefox verification; `Design.md` records the hold rule.
+- **Validation:** `npm run check`, `npx vitest run` (160/160), `npx eslint .`, and `npm run test:e2e` (39/39, Chromium) pass. Ad hoc in Playwright's Firefox, one voice test passes and the other runs through the confirmation and then fails when the Axe audit crashes the page.
+
+### 2026-11-24T22:55:00+01:00
+
+- **M3 (`src/lib/live/live-session.ts`):** the microphone track is added before the data channel, as in the provider's sample. Added a microphone level meter with a "no sound from your microphone" hint, shared with the output meter, and development-only console diagnostics (event types, error details, transport statistics). Non-fatal notices include the provider's error code.
+- **Tests:** `e2e/voice.test.ts` now uses real audio streams for the microphone and the assistant and covers the microphone hint; controller tests cover the hint and the track order.
+- **Validation:** `npm run check`, `npx vitest run` (160/160), `npx eslint .`, and `npm run test:e2e` (39/39) pass. Whether speech is now recognized by the real service is unconfirmed.
+
+### 2026-11-24T22:45:00+01:00
+
+- **Fix (M3):** `src/lib/live/live-session.ts` wraps `fetch`, `requestAnimationFrame`, and `cancelAnimationFrame` in arrow functions; the bare references threw "Illegal invocation" in the browser and ended the session when the assistant's audio track arrived (user report: "Audio level monitoring is unavailable"). A failing level meter no longer ends the session, and channel errors during shutdown are ignored.
+- **Tests:** `e2e/voice.test.ts` reproduced the failure once its fake peer delivered a real audio stream, and now asserts the Speaking state from that stream's level. Added a controller test for an unavailable level meter.
+- **Validation:** `npm run check`, `npx vitest run` (159/159), `npx eslint .`, and `npm run test:e2e` (39/39) pass. Confirmation with the real service is with the user.
+
+### 2026-11-24T22:35:00+01:00
+
+- **Fix (M3):** `src/lib/live/protocol.ts` no longer trims the SDP offer, which removed its final line ending before it was forwarded to OpenAI. Found after the user's first real connection attempt returned HTTP 400.
+- **Diagnostics:** `src/lib/server/live/session.ts` reads the provider's error type, code, field, and message (key-scrubbed, truncated; none for 401/403); `POST /api/live/session` logs them with the backend model, voice, and tool count and tells the browser which setting was rejected.
+- **Validation:** `npm run check`, the Live unit and route specs (52/52), and targeted ESLint pass. The fix is not yet confirmed against the real service.
+
+### 2026-11-24T22:20:00+01:00
+
+- **M3 review fixes (`src/lib/live/live-session.ts`):** Live `error` events no longer end the session; repeated `end()` calls share one shutdown instead of leaving a timer that could tear down a later session; ending disables the microphone track immediately; a late microphone stream from a cancelled start can no longer replace the current one; the remote-track handler no longer throws after a failure. Captions show the latest turn per speaker instead of the whole session. The controller now takes an options object.
+- **M3 tool bridge:** Added `src/lib/server/live/tools.ts` and `POST /api/live/tool` (authorization, HMAC approval tokens, execution through the MCP gateway), `toolDefinitions`/`callTool` on the gateway, function-tool registration in `POST /api/live/session`, and `src/lib/live/tool-calls.ts` for the browser-side continuation. The stage shows tool activity and the confirmation card with Approve/Deny; the card takes focus. Ending a session with a pending change sets the chat's interrupted notice.
+- **UI:** `VoiceStage` gained a closing state, a non-fatal notice, and an optional affected-device count; the Voice button is disabled while the text chat is busy. The Settings label for transcript retention no longer says "planned", and retention also requires text history to be on.
+- **Tests:** new `tool-calls.spec.ts`, `tools.spec.ts`, `src/routes/api/live/tool.spec.ts` (fake Home Assistant MCP server), and `e2e/voice.test.ts` (real server, fake MCP, faked OpenAI/WebRTC/microphone, Axe audit of the stage); extended controller, events, gateway, session-route, and `VoiceStage` specs. Six deliberate regressions in approval checking, denial precedence, single use, continuation, shared shutdown, and error handling were each caught by a test.
+- **Docs:** `AGENTS.md`, `README.md`, `Design.md`, and `Milestones.md` describe the tool bridge, the interruption policy, and the remaining M3 work.
+- **Validation:** `npm run check` (0 errors, 0 warnings), `npx vitest run` (156/156 in 26 files), `npx eslint .`, Prettier on all changed files, `npm run build`, and `npm run test:e2e` (39/39) pass. `npm run lint` still fails on Prettier warnings in files this work did not touch. No real OpenAI session, microphone, or Home Assistant instance was used; the GPT-Live event flow is implemented from the documentation.
+
+### 2026-11-24T21:40:00+01:00
+
+- **M3 browser Live connection:** Added browser WebRTC setup, microphone mute/release, remote audio playback, event-channel parsing, delegation status, output-audio activity detection, cancellation handling, and automatic close after 60 seconds in a hidden tab. Text chat remains mounted beneath the voice dialog.
+- **Transcript retention:** Voice transcript turns are appended to the active chat only when `history.retainTranscripts` is enabled; transcript text is cleared when the session ends and audio is never persisted. Returning to text restores focus to the Voice opener.
+- **Endpoint and controller tests:** Added fake-browser lifecycle and hidden-tab tests, transcript aggregation/persistence checks, and endpoint response, credential isolation, and invalid-offer tests. No real provider, microphone, or Home Assistant service was used.
+- **Validation:** `npm run check`, full `npx vitest run` (127/127), `npx eslint .`, Prettier on all changed files, and `npm run build` pass. `npm run lint` remains blocked by Prettier warnings in 37 unchanged repository files. Build output contains the existing Rollup annotation and adapter-auto environment warnings.
+
+### 2026-11-24T21:06:00+01:00
+
+- **M3 trusted session provisioning:** Added `POST /api/live/session` and a server-only OpenAI Live adapter. It validates a bounded SDP offer, uses the selected backend model and voice with `gpt-live-1.1` Responses delegation, applies the request timeout, validates the session ID/SDP answer, and never returns or logs API credentials or raw provider errors. Existing hooks provide same-origin, body-size, and rate-limit guards. Added focused tests for SDP validation, independent model configuration, credential isolation, provider errors, and malformed responses.
+- **Documentation:** Recorded the documented `/v1/live/sessions` unified WebRTC exchange and updated M3 progress; prior product decisions are no longer listed as open.
+- **Validation:** `npm run check`, `npx vitest run src/lib/server/live/session.spec.ts` (4/4), targeted ESLint, Prettier, and `npm run build` pass. The build reports the existing Rollup annotation and adapter-auto environment warnings. No real OpenAI session, microphone, or Home Assistant action was used.
+
+### 2026-11-24T20:54:41+01:00
+
+- **M3 start — presentation-only voice stage:** Added `VoiceStage.svelte` with ready, permission, connecting, listening, speaking, delegation/tool, confirmation, muted, and error samples. It supports concurrent status chips, hidden captions, read/change activity, and a solid confirmation card; controls are inert without callbacks. Added `/dev/voice-states`, gated to development; the gallery and sample-state copy are absent from the production client bundle. No microphone, audio, OpenAI, or Home Assistant calls are made.
+- **Documentation alignment:** Reviewed the current [GPT-Live guide](https://developers.openai.com/api/docs/guides/live), WebRTC, delegation, and session-management docs plus OpenAI Live Console. Updated `AGENTS.md` from ephemeral credentials to the documented server SDP offer/answer exchange and `session.started` flow. The sample targets `gpt-live-1`, not the planned `gpt-live-1.1`, and uses a fictional read-only catalog.
+- **Validation:** `npm run check` (0 errors/warnings), `npx vitest run src/lib/components/VoiceStage.svelte.spec.ts` (13/13), targeted ESLint, `npm run build`, and a production client-bundle scan confirming the gallery is absent. Inspected the development gallery in a browser using fake setup values, then reset that test data. The build passed with existing Rollup annotation and adapter-auto environment warnings. M3 remains in progress pending user review and the open voice decisions; audio integration has not started.
 
 ### 2026-11-24T20:27:06+01:00
 
@@ -300,4 +409,3 @@ This file records implementation and repository changes made by agents. Entries 
 - **Summary:** Added the chat endpoint transport and basic loading/error UI.
 - **Details:** Configured `DefaultChatTransport` for `/api/chat`, reactive input state, heading, and send-state handling.
 - **Status:** Svelte autofixer found no remaining issues.
-

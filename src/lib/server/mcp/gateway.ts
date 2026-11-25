@@ -88,17 +88,57 @@ export class HomeAssistantGateway {
 		};
 	}
 
+	private async exposedDefinitions(allowMutations: boolean): Promise<ListToolsResult> {
+		const definitions = await this.definitions();
+		return {
+			...definitions,
+			tools: definitions.tools.filter((tool) => {
+				const kind = classifyToolName(tool.name);
+				return kind === 'read' || (kind === 'mutation' && allowMutations);
+			})
+		};
+	}
+
+	/** Definitions of the allowlisted MCP tools, for providers that register tools by schema. */
+	async toolDefinitions({ allowMutations }: { allowMutations: boolean }) {
+		return (await this.exposedDefinitions(allowMutations)).tools;
+	}
+
+	/** Calls one allowlisted MCP tool after re-checking the policy. Confirmation is the caller's duty. */
+	async callTool(
+		name: string,
+		input: Record<string, unknown>,
+		{ allowMutations }: { allowMutations: boolean }
+	): Promise<{ text: string; isError: boolean }> {
+		const evaluation = evaluateToolCall(name, input);
+		if (evaluation.kind === 'blocked') throw new McpGatewayError(evaluation.reason, 403);
+		if (evaluation.kind === 'mutation' && !allowMutations) {
+			throw new McpGatewayError('Device changes are disabled on this server.', 403);
+		}
+		const { tools } = await this.definitions();
+		if (!tools.some((tool) => tool.name === name)) {
+			throw new McpGatewayError('The MCP server does not offer this tool.', 404);
+		}
+		const result = sanitizeToolResult(
+			await this.client.callTool({
+				name,
+				arguments: input,
+				options: { timeout: this.timeoutMs }
+			})
+		);
+		const content = 'content' in result && Array.isArray(result.content) ? result.content : [];
+		return {
+			text: content
+				.filter((part): part is { type: 'text'; text: string } => part?.type === 'text')
+				.map((part) => part.text)
+				.join('\n'),
+			isError: 'isError' in result && result.isError === true
+		};
+	}
+
 	/** AI SDK tools for allowlisted MCP tools. Execution re-checks the policy for every call. */
 	async createTools({ allowMutations }: { allowMutations: boolean }): Promise<ToolSet> {
-		const definitions = await this.definitions();
-		const isExposed = (name: string) => {
-			const kind = classifyToolName(name);
-			return kind === 'read' || (kind === 'mutation' && allowMutations);
-		};
-		const allowed = {
-			...definitions,
-			tools: definitions.tools.filter((tool) => isExposed(tool.name))
-		};
+		const allowed = await this.exposedDefinitions(allowMutations);
 		const mcpTools = this.client.toolsFromDefinitions(allowed);
 		const tools: ToolSet = {};
 		for (const [name, mcpTool] of Object.entries(mcpTools)) {

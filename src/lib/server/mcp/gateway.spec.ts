@@ -172,6 +172,40 @@ describe('Home Assistant MCP gateway', () => {
 		expect(Object.keys(readOnly)).toEqual(['GetLiveContext']);
 	});
 
+	it('calls a single tool only when it is allowlisted, offered, and permitted', async () => {
+		const { client } = fakeClient();
+		client.callTool.mockResolvedValue({ content: [{ type: 'text', text: 'done' }] });
+		const { gateway } = await connect(client);
+		const kitchen = { domain: ['light'], name: 'Kitchen' };
+
+		const readOnly = await gateway.toolDefinitions({ allowMutations: false });
+		expect(readOnly.map((tool) => tool.name)).toEqual(['GetLiveContext']);
+
+		await expect(
+			gateway.callTool('HassTurnOn', { domain: ['lock'] }, { allowMutations: true })
+		).rejects.toThrow(/not allowed/);
+		await expect(
+			gateway.callTool('homeassistant__call_service', {}, { allowMutations: true })
+		).rejects.toThrow(/not allowed/);
+		await expect(
+			gateway.callTool('HassTurnOn', kitchen, { allowMutations: false })
+		).rejects.toThrow('Device changes are disabled on this server.');
+		await expect(gateway.callTool('HassLightSet', {}, { allowMutations: true })).rejects.toThrow(
+			'The MCP server does not offer this tool.'
+		);
+		expect(client.callTool).not.toHaveBeenCalled();
+
+		expect(await gateway.callTool('HassTurnOn', kitchen, { allowMutations: true })).toEqual({
+			text: 'done',
+			isError: false
+		});
+		expect(client.callTool).toHaveBeenCalledWith({
+			name: 'HassTurnOn',
+			arguments: kitchen,
+			options: { timeout: 1000 }
+		});
+	});
+
 	it('closes the client only once', async () => {
 		const { client } = fakeClient();
 		const { gateway } = await connect(client);

@@ -30,7 +30,7 @@ This section is the implementation plan for future coding sessions.
 
 - The first deliverable is a public-facing text chat MVP.
 - M2a plans a coherent, dark, premium mobile-first design for the existing MVP; the immersive voice experience is a design concept until M3 implements voice.
-- The user's reference screen in `docs/design/reference-mobile-home.png` is the visual model for M2a. Mobile navigation is Home, a center orb that opens the assistant (text until M3 adds voice), and Settings.
+- The user's reference screen in `docs/design/reference-mobile-home.png` is the visual model for M2a. Mobile navigation is Home, a center orb, and Settings. Since M3 the orb starts voice mode, and the Home entry card offers Talk (voice) and Type (text chat).
 - In M2a, Home shows read-only summaries; scene tiles are assistant shortcuts that go through the existing confirmation flow. Direct device switches outside the conversation belong to M4.
 - The greeting uses the time of day and an optional display name from Settings.
 - Browser voice uses OpenAI GPT-Live over WebRTC.
@@ -38,7 +38,8 @@ This section is the implementation plan for future coding sessions.
 - Backend work is called delegation. The frontend/live model decides when to delegate, while the backend model reasons, uses tools, and returns results.
 - Configure the live model and backend model independently. Initial live model: `gpt-live-1.1`; backend model selection remains configurable.
 - The first GPT-Live implementation uses Responses delegation. Client delegation remains a documented later migration option.
-- The browser must obtain only an ephemeral session credential from the server.
+- For browser WebRTC, the trusted server exchanges the browser's SDP offer for an SDP answer using its configured OpenAI API key or, in the private browser-first MVP, the key supplied only to the same-origin server endpoint. Never send that key from the browser to OpenAI or return it as a Live credential; public production must use server-side key storage.
+- `POST /api/live/session` accepts a bounded SDP offer, creates the configured Live session through OpenAI's `/v1/live/sessions`, and returns only the opaque session ID and SDP answer. The HTTP exchange starts the session; the browser waits for `session.started` and must not send `session.start`. The shared request guard supplies same-origin checks, rate limits, and body-size limits.
 - Home Assistant is reached through an existing MCP server.
 - The initial public-hosted MVP is a private testing phase with no login. It must be deployed only to an explicitly restricted environment, with no exposure to unrelated users.
 - Authentication, rate limiting, origin controls, session isolation, and explicit action authorization remain required before a generally available public release.
@@ -48,6 +49,19 @@ This section is the implementation plan for future coding sessions.
 - The public/internet-ready production phase should replace browser-only secret storage with an appropriate server-side secret flow before being treated as secure.
 - On first start, the user completes an onboarding form for the essential MCP and voice settings.
 - The private MVP is designed for one user and persists browser-side conversation/action history when enabled.
+- When transcript retention is enabled, voice transcripts join the active text-chat session; otherwise they remain transient and disappear when the voice stage closes.
+- A voice session ends after the tab has been hidden for 60 seconds.
+- Spoken approval is deferred (user decision, 2026-11-24): in voice mode a pending change is approved or denied only with the on-screen controls. A user who prefers a more fluid conversation can relax the confirmation policy in Settings. If spoken approval is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve, and the server must validate the pending request.
+- Responses delegation exposes Home Assistant capabilities as application function tools routed through the existing server-side MCP gateway; MCP credentials are not sent to OpenAI's hosted MCP tool runner.
+- Delegated function calls arrive on the browser's Live data channel. The browser forwards each call to `POST /api/live/tool`, which authorizes it against the tool allowlist and the confirmation policy, runs it through the MCP gateway, and returns the text for the `function_call_output`; the browser then continues the backend response. A change that needs confirmation runs only with an approval token that the server issued for exactly that session, call, tool, and arguments (HMAC with `TOOL_APPROVAL_SECRET`, five-minute lifetime, single use per server process).
+- Speaking over the assistant does not cancel delegated work. Ending the voice session or leaving the stage abandons pending tool calls and confirmations; a change that was running or awaiting confirmation is reported in the text chat as interrupted with an unknown outcome.
+- Voice sample playback is deferred beyond M3 to avoid extra provider usage.
+- M3a makes the product voice first (user decisions, 2026-11-25; planned, not yet implemented). Text and voice are one conversation: voice turns are always written into the active chat, turn by turn, and stored like typed messages while chat history is on. The transcript-retention setting is removed, which replaces the earlier rule that voice transcripts are kept only after an explicit opt-in.
+- In M3a, ending a voice conversation leaves voice mode and shows the text view with the transcript; there is no "Back to text". A conversation also ends after 60 seconds without speech from either side.
+- In M3a, a new voice session receives the recent text of the current conversation. Home stays the start view with the orb as the main action, and voice never starts by itself.
+- In M3a, the tool calls of a voice conversation appear in the chat as the same cards as in a typed conversation. Confirmations of a voice conversation are still answered on the stage; a card in the chat never offers Approve or Deny, and a stored card can never be executed or approved again.
+- Voice behaves the same on every screen size, and the stage stays a modal view over the whole app. A conversation is never ended by voice (user decisions, 2026-11-25).
+- In M3a, the GPT-Live voice is chosen from a list that describes each voice (character, language, regional influence, feminine or masculine presentation) instead of being typed. The list is a catalog kept in the application and taken from OpenAI's documentation and Playground. It contains only the voices that OpenAI documents as natural voices; no other voice can be chosen or typed, and a stored voice outside the catalog is replaced by the default, which becomes `gleam`. Sample playback remains deferred.
 - M2 follow-up: text history is organized into selectable chat sessions. A new tab, browser restart, or page reload starts a new session; returning from Settings keeps the active session. Delete the legacy v1 chat history during the transition instead of migrating it; retain settings and credentials.
 - Switching chat sessions cancels in-progress responses and pending confirmations; already-started device actions may have an unknown outcome and must not be assumed undone.
 - Mutating Home Assistant actions can require confirmation according to the user's onboarding/settings preference.
@@ -98,7 +112,8 @@ Create a server-only OpenAI adapter for the following duplex architecture:
 - Connect the browser microphone and speaker through WebRTC; carry JSON events on the data channel.
 - Stream live transcripts and connection state to the UI.
 - Apply the onboarding-selected voice.
-- Never send a long-lived OpenAI API key to the browser. Use an ephemeral session credential or connection offer exchange created by the server.
+- For WebRTC, the server exchanges the browser's SDP offer for an SDP answer with OpenAI and returns the answer to the browser; it does not return the API key or a reusable credential. Follow the private-MVP browser-storage exception above when the key is not configured on the server.
+- The HTTP session-creation request starts the Live session. Register the data-channel listeners before creating the offer, then wait for `session.started`; do not send `session.start` over the data channel.
 
 ### Backend/reasoning model
 
@@ -133,7 +148,7 @@ The gateway is responsible for:
 - translating MCP errors into safe UI messages
 - returning function-call or MCP results to the GPT-Live continuation flow
 
-For GPT-Live, MCP tools may be registered under Responses delegation or executed through client delegation. The application must not assume that a tool call means that a mutating action is authorized. The backend emits a call, but the server-side gateway must validate the call and confirmation state before execution.
+For GPT-Live, expose application function tools through Responses delegation and execute them through the server-side MCP gateway. Do not pass MCP credentials to OpenAI's hosted MCP tool runner. The application must not assume that a tool call means that a mutating action is authorized. The backend emits a call, but the server-side gateway must validate the call and confirmation state before execution.
 
 ## 4. Home Assistant connection
 
@@ -396,7 +411,7 @@ Before implementation:
 
 ## Phase 3: GPT-Live Full-Duplex MVP
 
-- Add ephemeral GPT-Live session creation on the trusted server.
+- Add trusted-server GPT-Live WebRTC session provisioning by exchanging the browser SDP offer for an SDP answer.
 - Establish the browser-to-GPT-Live WebRTC connection.
 - Apply the onboarding-selected voice to `gpt-live-1.1`.
 - Configure a separate backend reasoning model for delegation.
@@ -408,6 +423,17 @@ Before implementation:
 - Return tool and MCP results to GPT-Live and allow it to continue speaking independently.
 - Support interruption, cancellation/continuation policy, and text fallback.
 - Build the voice mode specified in `Design.md` inside the Assistant view and switch the assistant entry points to voice.
+
+## Phase 3a: Voice-First Refinement
+
+- Treat text and voice as one conversation: write voice turns into the chat turn by turn and remove the transcript-retention setting
+- Pass the recent text of the conversation to a new voice session
+- End a voice conversation by leaving voice mode to the text view; remove "Back to text" and the Ready state
+- End a conversation after 60 seconds without speech from either side
+- Make voice the primary action in the text view
+- Show the tool calls of a voice conversation as cards in the chat, without confirmation controls
+- Update the storage notices and the data rules for voice transcripts
+- Replace the typed voice name with a voice picker that describes each voice
 
 ## Phase 4: Smart-Home Dashboard
 

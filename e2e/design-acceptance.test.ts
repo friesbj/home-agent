@@ -69,8 +69,9 @@ async function mockPendingApproval(page: Page) {
 }
 
 async function openAssistant(page: Page) {
+	// On small screens the Assistant opens from the Home entry card; on desktop it is always shown.
 	const nav = page.getByRole('navigation', { name: 'Main navigation' });
-	if (await nav.isVisible()) await nav.getByRole('button', { name: 'Open text assistant' }).click();
+	if (await nav.isVisible()) await page.getByRole('button', { name: 'Type', exact: true }).click();
 }
 
 async function horizontalOverflow(page: Page) {
@@ -512,7 +513,7 @@ test.describe('keyboard and focus', () => {
 	test('focus is not lost when a button hides its own view', async ({ page }) => {
 		await mockPendingApproval(page);
 		await setup(page);
-		await page.getByRole('button', { name: 'Ask your home' }).click();
+		await page.getByRole('button', { name: 'Type', exact: true }).click();
 		await expect(page.getByLabel('Message')).toBeFocused();
 
 		await page.getByRole('button', { name: 'Home', exact: true }).click();

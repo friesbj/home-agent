@@ -52,7 +52,7 @@ test('mobile navigation preserves a running response and its pending approval', 
 	});
 	await setup(page);
 	await expect(page.getByRole('region', { name: 'Home', exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Ask your home' }).click();
+	await page.getByRole('button', { name: 'Type', exact: true }).click();
 	await expect(page.getByLabel('Message')).toBeInViewport();
 	await send(page, 'Turn on the light');
 	await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
@@ -60,10 +60,12 @@ test('mobile navigation preserves a running response and its pending approval', 
 	await expect(page.getByRole('region', { name: 'Assistant', exact: true })).toBeHidden();
 	await expect.poll(() => Boolean(completeResponse)).toBe(true);
 	completeResponse?.();
-	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	// Voice is unavailable while a confirmation is pending: the orb shows the conversation instead.
+	await page.getByRole('button', { name: 'Start voice mode' }).click();
 	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+	await expect(page.getByRole('dialog', { name: 'Live conversation' })).toBeHidden();
 	await page.getByRole('button', { name: 'Home', exact: true }).click();
-	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	await page.getByRole('button', { name: 'Type', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
 	await expect(page.getByText('Turn on the light', { exact: true })).toBeVisible();
 });

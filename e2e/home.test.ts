@@ -66,7 +66,7 @@ test('opens the assistant from a scrolled home view on a small screen', async ({
 	expect(orb.x + orb.width).toBeLessThanOrEqual(settings.x);
 	expect(orb.y).toBeLessThan(bar.y);
 	await page.getByRole('heading', { name: 'Room 10' }).scrollIntoViewIfNeeded();
-	await page.getByRole('button', { name: 'Open text assistant' }).click();
+	await page.getByRole('button', { name: 'Type', exact: true }).click();
 	await expect(page.getByLabel('Message')).toBeInViewport();
 	await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport();
 	const send = await page.getByRole('button', { name: 'Send' }).boundingBox();

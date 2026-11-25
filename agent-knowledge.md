@@ -2,7 +2,111 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-25
+
+### 2026-11-25T08:55:00+01:00
+
+- **M3 is complete (canvas orb implemented):** the only remaining M3 build item, the canvas orb, is done; spoken approval stays deliberately deferred. The orb's moving layer is now canvas, driven only by the real audio level and the session state.
+- **How the orb motion is wired:** `orb-visual.ts` keeps the motion as a pure function (`orbFrame(state, level, timeMs)`) so it is testable without a canvas. The controller (`live-session.ts`) smooths the loud side of the conversation (output level while speaking, else the microphone when on) into `audioLevel` (0..1, full scale at RMS 0.25, smoothing 0.25 per frame) and exposes it as a getter, read by the canvas each frame through `getLevel` rather than through Svelte state, to avoid per-frame reactivity.
+- **Reduced-motion and fallback rule:** `AssistantOrbCanvas.svelte` draws over the static `AssistantOrb` SVG. Under `prefers-reduced-motion: reduce` or without a 2D context it does not animate, leaving the SVG sphere. The moved states (connecting, listening, speaking, thinking) no longer use CSS keyframes, so the existing e2e check that reduced motion leaves 0 running CSS animations still holds.
+
+### 2026-11-25T08:45:00+01:00
+
+- **M3a scope revised by the user (planning only):** this replaces the line "Considered and left out of M3a" in the entry below.
+  - **Action cards are now in M3a:** the tool calls of a voice conversation appear in the chat as the cards of the text mode.
+  - **Decided against, not postponed:** ending a conversation by voice, and voice inside the Assistant panel on desktop. Voice behaves the same on every screen size, and the stage stays a modal view over the whole app (a centered panel over the dimmed app on tablet and desktop).
+  - **Still out of M3a:** typing during a voice conversation and voice samples in the picker.
+- **Facts for the action cards:** the text mode renders AI SDK tool parts (`dynamic-tool`) with `ToolCallCard.svelte`, which shows Approve and Deny for the state `approval-requested` and sends the answer through the text chat's approval flow. Voice tool calls run through `LiveToolCoordinator` and `POST /api/live/tool` with their own approval tokens and leave no card in the chat today; `appendVoiceTranscript` adds text parts only.
+- **Constraints that follow:** a voice card in the chat must never be in a state that offers Approve or Deny, because that would route a voice confirmation into the text approval flow. A card that is still running or waiting when the session ends must end up as interrupted with an unknown outcome, also after a reload.
+- **To check when implementing (assumption, not verified):** a typed message after a voice conversation sends the stored chat to `/api/chat`, so the text endpoint must accept voice cards as history without executing or approving anything from them. Whether the text model gets them as tool calls with results or only the spoken text is open.
+
+### 2026-11-25T08:35:00+01:00
+
+- **M3a planned with the user (not implemented):** the product becomes voice first. Text and voice are one conversation with two ways of input; the chat is the record. User decisions: the transcript always joins the chat and the retention setting goes away; voice turns are written turn by turn; a voice session is seeded with the recent text of the conversation; ending a conversation always leaves to the text view; a conversation ends after 60 seconds without speech from either side; Home stays the start view and voice never starts by itself. Planning stays on `feat/m3-gpt-live-session`; implementation gets a new branch based on it.
+- **Consequences to keep in mind when implementing:** voice conversations are then stored unencrypted in the browser by default, like typed chats, which changes the consent rule in `AGENTS.md` ("Data Model") and the first-use note on the stage. The stage loses "Back to text" and the Ready state, so every way out of a conversation is an end. `session.input` accepts up to 128 messages and 8,192 tokens of text; tool results are not part of it.
+- **Open for implementation:** how long a waiting confirmation may keep a session open while the idle timer is paused (approval tokens last five minutes).
+- **Considered and left out of M3a:** voice inside the Assistant panel on desktop, typing during a voice conversation, ending by voice, and action cards in the chat.
+- **Voice picker added to M3a (user decision, 2026-11-25):** the voice is chosen from a described list instead of a text field; the information matters (character line, language, regional influence, feminine or masculine), not the Playground's look. No endpoint for listing voices is known, so the list is a catalog in the application that has to be maintained when the provider changes its voices. Sources so far: the Live guide's voice table (28 voices with language, regional influence, presentation, natural or generated) and the user's Playground screenshot with character lines for Gleam, Ripple (both "Warm and conversational"), Vesper and Bossa ("Clear and direct"), Willow ("Expressive and bright"), Stone ("Calm and precise"), and Meridian ("Grounded and measured"). Character lines for the other voices are missing; do not invent them. Sample playback stays deferred.
+- **Natural voices only (user decisions, 2026-11-25):** the picker offers only voices that OpenAI documents as natural. In the Live guide's table ("Managing sessions", read on 2026-11-25) 24 of the 28 voices are natural; Quartz, Beacon, Delta, and Cinder are generated. That table covers only the "additional" voices: the current default `marin` and the other older voices (`alloy`, `ash`, `ballad`, `cedar`, `coral`, `echo`, `sage`, `shimmer`, `verse`, today's `VOICE_SUGGESTIONS`) are not classified there, so they are left out unless OpenAI lists them as natural. The user chose Gleam (`gleam`) as the new default and a closed list: no typed voice ID and no "Other voice" entry; a stored voice outside the catalog is replaced by the default, and the settings schema and the Live session endpoint are to accept only catalog voices. This replaces the earlier plan to keep any voice ID of the allowed form usable. Consequence: custom voices and newly released voices need a catalog change first.
+
+### 2026-11-25T00:15:00+01:00
+
+- **Voice captions (user decision):** captions are hidden by default and have no heading; a quiet "Show captions" control reveals them. `VoiceStage` exposes `captionsVisible` as a bindable prop and the page keeps it, so the choice lasts while the page is open and resets on reload. It is not a stored setting; add one only if users ask to keep captions on permanently, since captions are the text equivalent for users who cannot hear the assistant.
+
 ## 2026-11-24
+
+### 2026-11-24T23:55:00+01:00
+
+- **User decisions (2026-11-24):** the confirmation card with Approve and Deny works against the real service. Spoken approval is deferred beyond M3; confirmations in voice are answered on screen, and users who want a more fluid conversation relax the confirmation policy in Settings.
+- **Voice entry and first use:** `LiveSessionController.prepare()` reads the microphone permission when the stage opens. Granted connects at once from every entry point; undecided (or a browser that cannot report it) shows the setup screen; refused shows the blocked screen with a retry. A `NotAllowedError` with the permission still undecided is a dismissed prompt, not a refusal. Failures before `session.started` are titled "Could not connect"; "Connection lost" is for a running session.
+- **Navigation change:** the mobile navigation orb starts voice mode (`#voice-orb`, named "Start voice mode"); the text Assistant opens from the Home card's Type button and from Back to text. While the text chat is busy or awaiting approval, voice entry points open the conversation instead. Avoid the word "conversation" in accessible names of persistent controls: the chat's session selector is labelled "Conversation" and tests locate it by that label.
+- **Remaining in M3:** the canvas orb driven by real levels. The stage already measures input and output levels in `live-session.ts`, but does not expose them to the view yet.
+
+### 2026-11-24T23:32:00+01:00
+
+- **Tool bridge confirmed against the real service (user, 2026-11-24):** lights and scenes on the user's Home Assistant were controlled by voice, so real `function_call` items, `POST /api/live/tool`, `function_call_output`, and the `response.create` continuation work end to end. The user did not say whether the confirmation card appeared or which confirmation policy was set; the confirmation and denial paths are verified only by the automated tests.
+
+### 2026-11-24T23:30:00+01:00
+
+- **Firefox works (user, 2026-11-24).** With the explicit microphone constraints the level peaks at 0.09 to 0.16 while speaking, against 0.005 before. The user was also asked to check the input device, so whether gain control or the device made the difference is unknown. Keep the explicit constraints.
+- **Correction to the previous entry:** the byte rate is not a usable signal. In Firefox it was 1.6 to 2.9 kB/s in silence and 3.3 kB/s during speech, so "silence-sized packets" proved nothing. Judge the microphone by its measured level.
+- **Event sequence observed from the real service, matching the documentation:** `session.input_transcript.delta` and `session.output_transcript.delta` interleaved, then `session.delegation.created`, then nested `response.created`, `response.in_progress`, `response.output_item.added`, `response.content_part.added`, `response.output_text.delta` (many), `response.output_text.done`, `response.content_part.done`, `response.output_item.done`, `response.completed`; `session.usage.updated` periodically; `session.closed` at the end. That delegation returned text only. A `function_call` item, the tool continuation, and a confirmation have still not been seen against the real service.
+
+### 2026-11-24T23:22:00+01:00
+
+- **Firefox measurements (user's console):** the negotiation is sound. Firefox offers Opus as payload 109 with the audio section first, OpenAI answers `sendrecv` with the same payload, and packets flow both ways. The evidence points at the input signal: the microphone level read 0.005 (noise floor at 8-bit resolution) and the packets averaged 44 bytes, the size of encoded silence. No `session.input_transcript.delta` arrived. Both readings were one snapshot, so this is likely but unproven; a wrong input device chosen in Firefox, or no gain control, would explain it.
+- **Changes on that basis:** `getUserMedia` now requests echo cancellation, noise suppression, and automatic gain control explicitly; levels are measured from float samples; the development console reports every 3 seconds the loudest microphone level since the last report and the bytes sent per second. As a guide, speech sends several kilobytes per second and reads well above 0.02.
+- **If Firefox still fails with a healthy level and byte rate,** the browser is sending real speech and the problem is on the provider's side of the media path; application code cannot fix that.
+
+### 2026-11-24T23:12:00+01:00
+
+- **Real-service status (user, 2026-11-24):** a spoken conversation works in Chrome. In Firefox the session connects but speech draws no reaction and no error.
+- **Firefox is not explained yet:** the voice end-to-end tests pass in Playwright's Firefox for the stage, both level meters, playback, tool calls, and the confirmation (only the Axe audit crashes that headless page), so the application's browser code runs there. What the faked peer cannot show is the media negotiation with OpenAI. The development console now logs `offer media` and `answer media` (media lines, codecs, and directions only), `microphone` (track state and measured level), and the packet counts; read these from a Firefox attempt before changing code. Playwright's Firefox was installed locally for this check and is not part of `playwright.config.ts`.
+- **Speaking state:** per-frame levels flip at every pause between words, which made the stage jump in a real conversation. Speaking now holds for 0.8 seconds after the last sound, and the chip row has a fixed height.
+
+### 2026-11-24T22:55:00+01:00
+
+- **Third real-service report (unresolved):** the session connects and shows Listening, but the user's speech draws no reaction, with no error anywhere. Compared with the provider's browser sample, the only difference was order: the sample adds the microphone track before creating the data channel, which puts the audio section first in the offer. The controller now does the same. Whether that was the cause is unknown; the user's microphone or input device is the other candidate.
+- **Diagnostics added for this:** an input level meter shows "No sound is arriving from your microphone yet" when the microphone has delivered no sound for 8 seconds, until sound was measured once. In development the browser console logs every Live event type under `[live]`, `error` event details, and after 5 seconds whether audio packets are sent and received. Transcript text is never logged. Non-fatal notices now include the provider's error code.
+- **Next step if it persists:** read the `[live]` console lines. No `session.input_transcript.delta` with `audio sent` packets rising means the provider receives audio it does not transcribe; no packets means the browser sends nothing.
+
+### 2026-11-24T22:45:00+01:00
+
+- **Second real-service finding (user report "Audio level monitoring is unavailable"):** after the SDP fix the session was created, but the first remote audio track ended it. `browserRuntime()` stored `requestAnimationFrame`/`cancelAnimationFrame` (and `fetch`) as bare references; called as methods of the runtime object they throw "Illegal invocation". `fetch` only worked because SvelteKit replaces `window.fetch` with a wrapper. Wrap window functions in arrow functions when injecting them.
+- **Why tests missed it:** unit tests inject a fake runtime and the end-to-end fake never delivered a remote track. `e2e/voice.test.ts` now delivers a real audio stream, so the real `AudioContext`, level meter, and playback path run in the browser, and the Speaking state is asserted from a real signal. Prefer real browser APIs in the end-to-end fake wherever only the network peer must be faked.
+- **Decision:** a failing level meter no longer ends the conversation; it only drives the Speaking state. Data-channel errors while the session is closing are ignored, since only `session.closed` decides the outcome.
+
+### 2026-11-24T22:35:00+01:00
+
+- **First real GPT-Live attempt failed with HTTP 400 at session creation (user report):** the request shape matches the API reference, but the request schema trimmed the SDP offer and so dropped its final CRLF. Forward the offer byte for byte; never normalize SDP. Whether this was the only cause is unconfirmed until the user retries.
+- **Provider rejections are now diagnosable:** `live.session.failed` logs the provider's error `type`, `code`, `param`, and a truncated, key-scrubbed `message`, plus the backend model, voice, and tool count. Credential errors (401/403) log no provider details. The browser sees only the field path and code. This replaces the earlier rule that nothing from the provider response is logged.
+
+### 2026-11-24T22:20:00+01:00
+
+- **M3 tool bridge (documented flow, verified against fakes only):** With Responses delegation, completed function calls arrive on the data channel as `response.event` envelopes whose nested event is `response.output_item.done` with a `function_call` item; the forwarded lifecycle snapshots carry no output items. Results go back as `response.item.create` (`function_call_output`), and the backend resumes only after an explicit `response.create`, sent once the nested `response.completed` arrived and every call has a result. `src/lib/live/tool-calls.ts` owns this; calls are keyed by the envelope's `delegation_id`.
+- **Server authorization for voice:** `POST /api/live/tool` (`src/lib/server/live/tools.ts`) is the only path that executes a delegated call. It applies `evaluateToolCall`, `MCP_ALLOW_MUTATIONS`, and the confirmation policy sent with the request (a browser preference, as in text chat). Approval tokens are `expiresAt.signature`, an HMAC over session ID, call ID, tool name, a hash of the raw arguments, and the expiry, so they carry no claims and verify only against the same request. Single use is kept in process memory; several server instances would need shared storage. A denial always wins, whatever the policy.
+- **Live `error` events are not fatal:** rejected commands, `responses_validation_failed`, and moderation notices leave the session open. The controller shows a notice and ends only on `session.closed` (reasons `expired` and `content` have their own messages) or a lost connection.
+- **Lifecycle rules worth keeping:** `end()` is shared between callers, disables the microphone track immediately, and abandons pending tool work before sending `session.close`, because a response waiting for a tool result cannot continue once closing starts. The Voice entry is blocked while the text chat is streaming or awaiting approval, since retained voice turns are appended to that chat's messages.
+- **Open:** spoken approval is decided in principle but not designed (how "unambiguous" is determined); nothing has run against the real GPT-Live service; the session is not seeded with the text conversation (`session.input`).
+
+### 2026-11-24T21:40:00+01:00
+
+- **M3 browser session lifecycle:** The browser sends the gathered SDP offer only to `/api/live/session`, waits for `session.started`, then manages microphone, remote playback, data-channel events, and `session.close`/`session.closed`. Startup cancellation releases a microphone stream if permission resolves late; output audio level is measured without routing duplicate audible output.
+- **M3 transcript retention:** OpenAI transcript deltas provide `start_ms`/`end_ms` but no item ID or turn-completion event. Group fragments per speaker using their timeline intervals; the current 1.5-second gap is an application heuristic. Retained turns are added to the active AI SDK chat only when `history.retainTranscripts` is enabled; ending the session clears in-memory transcript state and no audio is persisted. Keep the tool bridge, server authorization, and confirmation flow as separate remaining work; no real OpenAI or Home Assistant call has been validated.
+
+### 2026-11-24T21:06:00+01:00
+
+- **M3 server session endpoint:** OpenAI's current unified WebRTC flow accepts `{ session, transport: { type: "webrtc", sdp } }` at `/v1/live/sessions` and responds with `session.id` plus `transport.sdp`. `POST /api/live/session` keeps the standard API key in the server-to-server Authorization header, validates a 64 KB SDP offer and the provider response, and returns no credential to the browser. Shared hooks enforce origin, request-size, and rate controls; the provider response body is never logged or surfaced.
+
+### 2026-11-24T21:01:44+01:00
+
+- **M3 product decisions (user-confirmed):** keep retained voice turns in the active text-chat session; end a voice session after 60 seconds in a hidden tab; allow explicit, unambiguous speech to approve only the active server-issued confirmation while retaining on-screen controls; use Responses application functions routed through the server MCP gateway without forwarding MCP credentials to OpenAI; defer voice sample playback beyond M3. Ambiguous speech must never approve.
+- **Voice stage accepted:** the user approved the fixed-data gallery. Proceed to trusted-server WebRTC session provisioning on `feat/m3-gpt-live-session`; audio has not yet been connected.
+
+### 2026-11-24T20:52:37+01:00
+
+- **GPT-Live documentation reviewed for M3:** the current Live guide recommends browser WebRTC with the trusted server exchanging the browser SDP offer for an SDP answer via `POST /v1/live/sessions`; the HTTP request starts the session, the browser waits for `session.started`, and it must not send `session.start`. This replaces the earlier plan wording about returning an ephemeral session credential. Responses delegation supports MCP and custom functions, but the application still owns tool authorization and confirmations. The current OpenAI Live Console sample targets `gpt-live-1` and a fictional read-only catalog, so it is only a pattern reference, not validation of the planned `gpt-live-1.1` integration.
+- **M3 first slice:** `VoiceStage` and its development-only state gallery use fixed sample states and have no microphone, audio, or provider connection. Keep the audio integration behind the user's review of the gallery and resolution of the transcript-retention and hidden-tab decisions.
 
 ### 2026-11-24T20:27:06+01:00
 
@@ -242,4 +346,3 @@ This file is the persistent project knowledge base. Entries are append-only and 
 - The project plan was added to `AGENTS.md`.
 - Planned architecture: SvelteKit frontend, server-only OpenAI adapter, server-only MCP gateway, and Home Assistant MCP server.
 - Initial routes include `/`, `/settings`, and optional `/history`; authentication uses an appropriate public-internet approach.
-
