@@ -11,7 +11,8 @@
 		TriangleAlert
 	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import AssistantOrb from './AssistantOrb.svelte';
+	import AssistantOrbCanvas from './AssistantOrbCanvas.svelte';
+	import type { OrbVisual } from '$lib/live/orb-visual';
 
 	export type VoiceActivity = {
 		kind: 'read' | 'change';
@@ -53,6 +54,8 @@
 		state: VoiceStageState;
 		/** The configured voice, shown on the first-use screen with a link to Settings. */
 		voiceName?: string;
+		/** Live audio level (0..1) that drives the orb; omit when no session is connected. */
+		getLevel?: () => number;
 		/** Captions are off by default; bind this to keep the user's choice between conversations. */
 		captionsVisible?: boolean;
 		onstart?: () => void;
@@ -68,6 +71,7 @@
 	let {
 		state: stageState,
 		voiceName,
+		getLevel,
 		captionsVisible = $bindable(false),
 		onstart,
 		onpermission,
@@ -217,7 +221,7 @@
 
 	<div class="stage-focus flex flex-1 flex-col items-center justify-center gap-4 text-center">
 		<div class={['voice-orb', `orb-${presentation.orb}`]} aria-hidden="true">
-			<AssistantOrb size="hero" />
+			<AssistantOrbCanvas orb={presentation.orb as OrbVisual} {getLevel} />
 			{#if !microphoneOn}
 				<span class="voice-orb-mute"><MicOff size={22} /></span>
 			{/if}
@@ -445,24 +449,6 @@
 		opacity: 0.62;
 		transform: scale(0.9);
 	}
-	.orb-connecting::after {
-		position: absolute;
-		inset: -8%;
-		border: 2px solid transparent;
-		border-top-color: var(--color-cool);
-		border-radius: 50%;
-		animation: connect-turn 2.4s linear infinite;
-		content: '';
-	}
-	.orb-listening:not(.orb-muted) {
-		animation: listen-breathe 4s ease-in-out infinite;
-	}
-	.orb-speaking {
-		animation: speak-breathe 2.2s ease-in-out infinite;
-	}
-	.orb-thinking {
-		animation: think-turn 24s linear infinite;
-	}
 	.orb-confirming {
 		opacity: 0.76;
 		transform: scale(0.46);
@@ -474,26 +460,6 @@
 	.orb-error {
 		filter: grayscale(0.8);
 		opacity: 0.6;
-	}
-	@keyframes connect-turn {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-	@keyframes listen-breathe {
-		50% {
-			transform: scale(1.025);
-		}
-	}
-	@keyframes speak-breathe {
-		50% {
-			transform: scale(1.035);
-		}
-	}
-	@keyframes think-turn {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 	@media (max-height: 600px) {
 		.voice-orb {
@@ -530,12 +496,6 @@
 		.voice-orb {
 			transition: none;
 		}
-		.orb-listening:not(.orb-muted),
-		.orb-speaking,
-		.orb-thinking,
-		.orb-connecting::after {
-			animation: none;
-		}
 	}
 	.tool-read {
 		border-color: rgb(127 220 255 / 0.5);
@@ -548,12 +508,6 @@
 	@media (max-height: 599px) {
 		.voice-orb {
 			width: 140px;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.voice-orb,
-		.voice-orb::after {
-			animation: none !important;
 		}
 	}
 </style>

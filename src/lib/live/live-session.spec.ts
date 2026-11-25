@@ -475,6 +475,23 @@ describe('LiveSessionController', () => {
 		expect(speaking()).toBe(false);
 	});
 
+	it('exposes a smoothed audio level for the orb driven by real sound', async () => {
+		const context = setup();
+		const { peerMock, setSampleValue, runAudioFrame, controller } = context;
+		await context.connect();
+		peerMock.ontrack?.({ streams: [{} as MediaStream], track: {} as MediaStreamTrack });
+
+		expect(controller.audioLevel).toBe(0);
+		setSampleValue(160);
+		for (let t = 0; t < 12; t++) runAudioFrame(t * 16);
+		const peak = controller.audioLevel;
+		expect(peak).toBeGreaterThan(0);
+
+		setSampleValue(128);
+		for (let t = 12; t < 80; t++) runAudioFrame(t * 16);
+		expect(controller.audioLevel).toBeLessThan(peak);
+	});
+
 	it('hints at a silent microphone until sound was measured once', async () => {
 		const context = setup();
 		const notice = () => {

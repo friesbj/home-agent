@@ -26,6 +26,9 @@ const MICROPHONE_SOUND_LEVEL = 0.01;
 const MICROPHONE_QUIET_MS = 8_000;
 const SPEAKING_START_LEVEL = 0.025;
 const SPEAKING_STAY_LEVEL = 0.012;
+/** Audio RMS treated as a full-strength orb pulse; speech peaks well above this. */
+const ORB_LEVEL_FULL = 0.25;
+const ORB_LEVEL_SMOOTHING = 0.25;
 /** Speech pauses between words and sentences; the Speaking state must not flicker with them. */
 const SPEAKING_HOLD_MS = 800;
 const DEBUG_INTERVAL_MS = 3_000;
@@ -205,6 +208,8 @@ export class LiveSessionController {
 	#quietSince?: number;
 	#outputSoundAt?: number;
 	#inputPeak = 0;
+	/** Smoothed activity level (0..1) that drives the orb; the loud side of the conversation. */
+	#level = 0;
 	#transcript = initialLiveTranscriptState;
 
 	constructor(options: LiveSessionOptions) {
@@ -217,6 +222,11 @@ export class LiveSessionController {
 
 	get #browser(): LiveRuntime {
 		return (this.#runtime ??= browserRuntime());
+	}
+
+	/** Smoothed audio activity level (0..1) for the orb; 0 when no sound is flowing. */
+	get audioLevel(): number {
+		return this.#level;
 	}
 
 	/**
@@ -673,9 +683,9 @@ export class LiveSessionController {
 
 	#measure = (time: number) => {
 		let changed = false;
+		const outputLevel = this.#outputMeter?.level() ?? 0;
 		if (this.#outputMeter) {
-			const level = this.#outputMeter.level();
-			if (level >= (this.#speaking ? SPEAKING_STAY_LEVEL : SPEAKING_START_LEVEL)) {
+			if (outputLevel >= (this.#speaking ? SPEAKING_STAY_LEVEL : SPEAKING_START_LEVEL)) {
 				this.#outputSoundAt = time;
 			}
 			const speaking =
@@ -687,6 +697,9 @@ export class LiveSessionController {
 		}
 		const inputLevel = this.#inputMeter?.level() ?? 0;
 		this.#inputPeak = Math.max(this.#inputPeak, inputLevel);
+		// The orb follows whichever side is making sound, so it reacts to real audio.
+		const active = this.#speaking ? outputLevel : this.#microphoneOn ? inputLevel : 0;
+		this.#level += (Math.min(1, active / ORB_LEVEL_FULL) - this.#level) * ORB_LEVEL_SMOOTHING;
 		// Until sound was measured once, tell the user when the microphone delivers none.
 		if (this.#inputMeter && this.#connected && !this.#microphoneHeard) {
 			let quiet = false;
@@ -793,6 +806,7 @@ export class LiveSessionController {
 		this.#quietSince = undefined;
 		this.#outputSoundAt = undefined;
 		this.#inputPeak = 0;
+		this.#level = 0;
 		this.#abort = undefined;
 		this.#visibilityHandler = undefined;
 		this.#hiddenTimer = undefined;

@@ -214,6 +214,7 @@
 			<VoiceStage
 				state={voiceState}
 				voiceName={appConfig.settings.models.voice}
+				getLevel={() => liveSession.audioLevel}
 				bind:captionsVisible
 				onstart={startLiveConversation}
 				onpermission={startLiveConversation}
