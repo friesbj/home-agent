@@ -4,6 +4,12 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-25
 
+### 2026-11-25T08:55:00+01:00
+
+- **M3 is complete (canvas orb implemented):** the only remaining M3 build item, the canvas orb, is done; spoken approval stays deliberately deferred. The orb's moving layer is now canvas, driven only by the real audio level and the session state.
+- **How the orb motion is wired:** `orb-visual.ts` keeps the motion as a pure function (`orbFrame(state, level, timeMs)`) so it is testable without a canvas. The controller (`live-session.ts`) smooths the loud side of the conversation (output level while speaking, else the microphone when on) into `audioLevel` (0..1, full scale at RMS 0.25, smoothing 0.25 per frame) and exposes it as a getter, read by the canvas each frame through `getLevel` rather than through Svelte state, to avoid per-frame reactivity.
+- **Reduced-motion and fallback rule:** `AssistantOrbCanvas.svelte` draws over the static `AssistantOrb` SVG. Under `prefers-reduced-motion: reduce` or without a 2D context it does not animate, leaving the SVG sphere. The moved states (connecting, listening, speaking, thinking) no longer use CSS keyframes, so the existing e2e check that reduced motion leaves 0 running CSS animations still holds.
+
 ### 2026-11-25T08:45:00+01:00
 
 - **M3a scope revised by the user (planning only):** this replaces the line "Considered and left out of M3a" in the entry below.

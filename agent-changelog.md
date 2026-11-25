@@ -4,6 +4,18 @@ This file records implementation and repository changes made by agents. Entries 
 
 ## 2026-11-25
 
+### 2026-11-25T08:55:00+01:00
+
+- **Changed:** finalized M3 by rendering the voice-stage orb on canvas.
+  - New `src/lib/live/orb-visual.ts`: pure motion model (`orbFrame`, `orbAnimates`); listening and speaking scale pulse and glow with the audio level, connecting and thinking rotate with time, other states are still.
+  - New `src/lib/components/AssistantOrbCanvas.svelte`: draws the moving aura over the static `AssistantOrb` sphere; stays blank under reduced motion or without a 2D context, so the SVG sphere is the fallback.
+  - `src/lib/live/live-session.ts`: the measure loop tracks the loud side of the conversation as a smoothed `audioLevel` getter, reset with the session.
+  - `src/lib/components/VoiceStage.svelte`: uses the canvas orb with a `getLevel` prop and drops the CSS keyframes for the connecting, listening, speaking, and thinking states (static state transforms kept).
+  - `src/routes/+page.svelte`: passes `getLevel={() => liveSession.audioLevel}`.
+- **Tests:** `orb-visual.spec.ts` (motion maths), `AssistantOrbCanvas.svelte.spec.ts` (canvas over the SVG), and a controller test that `audioLevel` rises with sound and decays in silence.
+- **Validation:** `npm run check` 0 errors; `npx vitest run` 174 passed; `npx playwright test e2e/voice.test.ts` 3 passed (including the reduced-motion check of 0 running CSS animations); `npx eslint .` clean; Prettier clean on the changed files.
+- **Milestone:** M3 - Render the orb states on canvas.
+
 ### 2026-11-25T08:45:00+01:00
 
 - **Planning (M3a, scope revised by the user):** added the tool calls of a voice conversation as cards in the chat (three todos), the same voice behavior on every screen size, and the rule that a conversation is never ended by voice; rewrote the "Not in M3a" line. Changed `Milestones.md`, `Design.md`, `AGENTS.md`, and `agent-knowledge.md`. No source code changed.
