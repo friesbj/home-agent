@@ -8,7 +8,9 @@
 		<span class="font-semibold">Credentials are stored in this browser.</span>
 		<span class="text-ink-muted">
 			They are saved unencrypted, readable by JavaScript on this site, and sent only to this app's
-			server. Use dedicated, least-privilege credentials in a restricted private deployment.
+			server. Use dedicated, least-privilege credentials in a restricted private deployment. Chat
+			messages, voice transcripts, and voice tool results are also stored unencrypted in this
+			browser and can be deleted in Settings.
 		</span>
 	</p>
 </aside>

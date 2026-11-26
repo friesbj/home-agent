@@ -2,7 +2,63 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-26
+
+### 2026-11-26T21:41:00+01:00
+
+- **M3a card ordering decision:** the user chose to keep voice action cards at their event-arrival position instead of estimating their position from the delegation timestamp. Late transcript fragments can therefore appear after an action that they preceded in speech.
+- **M3a cross-tab recovery:** the user chose to defer the case where a second tab opens a conversation that still has an active voice call in the first tab. The second tab can incorrectly mark a pending card interrupted and subsequent concurrent writes can conflict; do not assume this case is safe or resolved.
+- **M3a crash persistence:** the user accepted best-effort saving as transcript fragments arrive; an immediate tab or browser crash can lose the latest fragment.
+- **M3a local speech activity:** the user chose local VAD for the idle timer. The Silero v5 model and ONNX WebAssembly runtime are bundled as same-origin assets and process the existing microphone stream without collecting utterances or sending audio to another service. Loading, initialization failure, and stalled processing disable the idle timeout visibly rather than risk ending while the user is speaking. Detection is probabilistic. On 2026-11-26 the user reported successful real-service tests of speech lasting over 60 seconds, the 60-second idle end, and a spoken follow-up referring to an earlier typed message.
+
+### 2026-11-26T21:21:06+01:00
+
+- **M3a delegation activity:** the Live transcript state tracks active backend delegations by provider delegation ID. Completing one no longer clears the thinking state or resumes the idle timer while another is still running. The user reports that the earlier history-load problem appears resolved in their browser; the particular stored record responsible was not inspected.
+
+### 2026-11-26T21:16:49+01:00
+
+- **M3a legacy action cards:** early saved voice cards lacked the later-added `label` field although the history version stayed the same. Loading those records now supplies a generic label in memory; listing does not rewrite storage, and malformed records still report an error. This is a reproduced possible cause of the user's history-load error, not confirmation of their browser's stored data.
+
+### 2026-11-26T20:46:16+01:00
+
+- **Idle activity:** GPT-Live's documentation says transcript delivery can be uneven and gaps do not establish silence. The idle timer now also tracks measured assistant output, without recreating a timer on each audio frame. Microphone audio is not a speech detector: background noise must not indefinitely extend the session, while user speech without transcript deltas remains an open gap. If the output meter cannot be created, the stage warns that the session may end during playback.
+- **Late voice turns:** the chat uses the current session's sorted transcript snapshots to reorder voice-message slots, preserving messages from earlier sessions and non-voice slots. This does not establish where an action card belongs relative to late speech. GPT-Live exposes an approximate `offset_ms` for delegation creation, but exact tool-call timing requires further investigation.
+- **Concurrent delegation limitation:** transcript state currently uses a single `thinking` flag. Completion of one backend response can clear it while another delegation is still running; independent tracking is needed before claiming idle behavior covers overlapping work.
+
+### 2026-11-26T20:34:00+01:00
+
+- **M3a confirmation lifetime:** a pending Live confirmation expires at the server-issued deadline without executing the action. Its result tells the model not to retry without asking; the idle period resumes once pending work ends. The server remains authoritative for approval.
+- **Saved voice calls:** selecting a saved conversation marks running or waiting voice cards interrupted, since a restored page cannot resume those calls. Listing sessions does not rewrite them. Selecting a conversation still active in another tab requires further cross-tab verification.
+- **M3a context and remaining limits:** Live context excludes action-card placeholders and is capped at 128 messages, 4,096 characters per message, and 8,192 characters total. A server test confirms typed follow-ups accept voice-card summaries without re-executing the action. Delayed transcript fragments and cards are not guaranteed to appear in spoken order; the idle timer currently tracks transcript events rather than reliable speech activity.
+
 ## 2026-11-25
+
+### 2026-11-25T12:09:00+01:00
+
+- **Chat history is always enabled (user decision):** the old history and transcript-retention preferences are ignored when settings are loaded. Text, voice transcripts, and voice tool results are kept unencrypted in browser storage, with explicit deletion in Settings. Web Locks and available storage are still required; failures are reported rather than silently treated as saved.
+- **Stored voice migration:** an unsupported legacy voice falls back to Gleam without discarding other settings. The normal settings and Live request schemas still reject unsupported choices.
+- **Live context limits:** each seeded message is capped at 4,096 characters, with at most 8,192 characters and 128 messages in total. Voice transcript turn IDs are scoped to a Live session.
+
+### 2026-11-25T11:00:00+01:00
+
+- **M3a action cards:** Live tool calls now publish `LiveToolCard` snapshots with kind, summary, status, and optional output. Chat history stores action metadata and ChatPanel renders it without Approve/Deny controls. Pending cards remain voice-stage confirmations; cancel/end marks running changes interrupted with unknown outcome.
+- **M3a natural voice catalog:** only the 24 voices documented as Natural are selectable. Gleam is default; settings and Live session validation accept catalog IDs only. Character lines are limited to the seven confirmed in the user's screenshot. Search/filter and radio selection are in Settings.
+
+### 2026-11-25T09:46:00+01:00
+
+- **M3a live chat updates:** Live transcript delta events publish growing user/assistant turns immediately. Each turn has a stable ID based on role and timeline position, and `ChatSessionManager` upserts one UI message rather than appending fragments or duplicate turns. The voice marker (`source: 'voice'`, `voiceTurnId`) is stored in text snapshots and the versioned chat-session schema.
+- **M3a context seeding:** `session.input` carries only the newest text messages (128 maximum, 8192 characters maximum). The browser sends typed `{ role, text }` context; the trusted server validates it and maps user text to `input_text` and assistant text to `output_text` provider items. Tool parts and secrets never enter context.
+
+### 2026-11-25T09:24:00+01:00
+
+- **M3a leave behavior:** the Ready state and Back-to-text control are removed. End, Escape, and Close leave immediately to the text view. `LiveSessionController.leave()` synchronously disables and stops the microphone tracks and detaches the stream. `end()` owns asynchronous provider shutdown, so the UI is not blocked by `session.closed` or the close timeout.
+- **Tested behavior:** Live controller unit tests, VoiceStage component tests, and all 3 voice e2e tests pass with the immediate leave path.
+
+### 2026-11-25T09:14:00+01:00
+
+- **M3a implementation started on `feat/m3a-voice-first`:** the first vertical slice makes voice transcripts standard. `history.retainTranscripts` is removed from the settings schema and UI; Zod parsing ignores a stored legacy value. `ChatSessionManager.appendVoiceTranscript` now depends only on `history.enabled`, so every voice turn is appended to the active chat while chat history is on.
+- **User-facing rule:** the VoiceStage setup copy says that voice conversations are kept in chat history while it is enabled. When history is off, voice turns are not appended or persisted. Captions and audio remain transient.
+- **Validation:** settings and live unit tests, Settings and Voice component tests, and all voice e2e tests pass.
 
 ### 2026-11-25T08:55:00+01:00
 

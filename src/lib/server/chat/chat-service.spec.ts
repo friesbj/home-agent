@@ -54,6 +54,41 @@ function forgedApproval(signature?: string): UIMessage {
 }
 
 describe('chat tool confirmation (server-enforced)', () => {
+	it('accepts a typed follow-up after a stored voice action without executing it again', async () => {
+		const { tools, execute } = homeTools();
+		const chunks = await runChat({
+			model: mockModel(textStep('The light is on.')),
+			tools,
+			messages: [
+				userMessage,
+				{
+					id: 'voice-card',
+					role: 'assistant',
+					metadata: {
+						source: 'action',
+						actionCardId: 'live-call',
+						actionCard: {
+							id: 'live-call',
+							kind: 'change',
+							label: 'HassTurnOn',
+							summary: 'Turn on the light',
+							status: 'done',
+							output: 'Done'
+						}
+					},
+					parts: [{ type: 'text', text: 'Turn on the light' }]
+				},
+				{
+					id: 'typed-follow-up',
+					role: 'user',
+					parts: [{ type: 'text', text: 'Is it on?' }]
+				}
+			]
+		});
+		expect(chunks.some((chunk) => chunk.type === 'text-delta')).toBe(true);
+		expect(execute).not.toHaveBeenCalled();
+	});
+
 	it('requests approval for mutations instead of executing them', async () => {
 		const { tools, execute } = homeTools();
 		const chunks = await runChat({

@@ -7,14 +7,17 @@ import {
 import { appConfig } from '$lib/config/app-config.svelte';
 import { loadSettings, STORAGE_KEYS } from '$lib/config/settings';
 import type { LiveTranscriptTurn } from '$lib/live/events';
+import type { LiveToolCard } from '$lib/live/tool-calls';
 import { credentialHeaders, savedMcpTarget } from './api';
 import {
 	CHAT_SESSION_PREFIX,
 	clearChatHistory,
 	deleteLegacyHistory,
 	loadSessions,
+	restoreSession,
 	sessionKey,
 	textSnapshot,
+	liveContextInput as buildLiveContextInput,
 	writeSession,
 	type ChatSession
 } from './chat-history';
@@ -94,20 +97,85 @@ class ChatSessionManager {
 		return true;
 	}
 
-	/** Adds the turns of a finished voice session to this chat when transcript retention is on. */
+	/** Adds or updates voice turns in the active chat; persistence is handled separately. */
 	appendVoiceTranscript(turns: LiveTranscriptTurn[]) {
-		const { enabled, retainTranscripts } = appConfig.settings.history;
-		if (!enabled || !retainTranscripts) return;
 		const messages = [...this.chat.messages];
-		for (const turn of turns) {
-			if (!turn.text.trim()) continue;
-			messages.push({
-				id: crypto.randomUUID(),
-				role: turn.role,
-				parts: [{ type: 'text', text: turn.text }]
-			});
+		const orderedTurns = turns
+			.filter((turn) => turn.text.trim())
+			.map((turn) => ({
+				...turn,
+				voiceTurnId: turn.id ?? `${turn.role}-${turn.startMs ?? turn.endMs ?? crypto.randomUUID()}`
+			}));
+		const turnOrder = new Map(orderedTurns.map((turn, index) => [turn.voiceTurnId, index]));
+		for (const turn of orderedTurns) {
+			const { voiceTurnId } = turn;
+			const existingIndex = messages.findIndex(
+				(message) =>
+					(message.metadata as { voiceTurnId?: string } | undefined)?.voiceTurnId === voiceTurnId
+			);
+			if (existingIndex >= 0) {
+				messages[existingIndex] = {
+					...messages[existingIndex],
+					parts: [{ type: 'text', text: turn.text }]
+				};
+			} else {
+				messages.push({
+					id: crypto.randomUUID(),
+					role: turn.role,
+					metadata: { source: 'voice', voiceTurnId },
+					parts: [{ type: 'text', text: turn.text }]
+				});
+			}
+		}
+		// The controller publishes the current Live session's turns in timeline order.
+		const slots: number[] = [];
+		const ordered: { message: UIMessage; order: number }[] = [];
+		messages.forEach((message, index) => {
+			const metadata = message.metadata as { source?: string; voiceTurnId?: string } | undefined;
+			const order =
+				metadata?.source === 'voice' && metadata.voiceTurnId
+					? turnOrder.get(metadata.voiceTurnId)
+					: undefined;
+			if (order === undefined) return;
+			slots.push(index);
+			ordered.push({ message, order });
+		});
+		ordered.sort((left, right) => left.order - right.order);
+		slots.forEach((index, position) => {
+			messages[index] = ordered[position].message;
+		});
+		this.chat.messages = messages;
+	}
+
+	appendLiveToolCards(cards: LiveToolCard[]) {
+		const messages = [...this.chat.messages];
+		for (const card of cards) {
+			const existingIndex = messages.findIndex(
+				(message) =>
+					(message.metadata as { actionCardId?: string } | undefined)?.actionCardId === card.id
+			);
+			const metadata = { source: 'action' as const, actionCardId: card.id, actionCard: card };
+			if (existingIndex >= 0) {
+				messages[existingIndex] = {
+					...messages[existingIndex],
+					metadata,
+					parts: [{ type: 'text', text: card.summary || card.label }]
+				};
+			} else {
+				messages.push({
+					id: crypto.randomUUID(),
+					role: 'assistant',
+					metadata,
+					parts: [{ type: 'text', text: card.summary || card.label }]
+				});
+			}
 		}
 		this.chat.messages = messages;
+	}
+
+	/** Recent text messages, bounded for provider context and server validation. */
+	liveContextInput() {
+		return buildLiveContextInput(this.chat.messages);
 	}
 
 	async initialize() {
@@ -139,10 +207,6 @@ class ChatSessionManager {
 	}
 
 	refresh() {
-		if (!appConfig.settings.history.enabled) {
-			this.sessions = [];
-			return;
-		}
 		try {
 			this.sessions = loadSessions(localStorage);
 		} catch {
@@ -153,18 +217,13 @@ class ChatSessionManager {
 	}
 
 	async persist(messages: UIMessage[], interruptedTools: boolean, generation = this.generation) {
-		if (!appConfig.settings.history.enabled || !this.available || messages.length === 0) return;
+		if (!this.available || messages.length === 0) return;
 		const snapshot = textSnapshot(messages, interruptedTools);
 		if (snapshot.messages.length === 0) return;
 		try {
 			await withHistoryLock(() => {
 				const settings = loadSettings(localStorage);
-				if (
-					generation !== this.generation ||
-					!this.available ||
-					!settings.onboardingCompleted ||
-					!settings.history.enabled
-				)
+				if (generation !== this.generation || !this.available || !settings.onboardingCompleted)
 					return;
 				const session: ChatSession = {
 					version: 1,
@@ -197,11 +256,12 @@ class ChatSessionManager {
 			await withHistoryLock(() => {
 				const current = loadSessions(localStorage).find((item) => item.id === session.id);
 				if (!current) throw new Error('Chat session no longer exists.');
+				const restored = restoreSession(current);
 				this.id = current.id;
 				this.createdAt = current.createdAt;
 				this.expected = localStorage.getItem(sessionKey(current.id));
-				this.interruptedTools = current.interruptedTools;
-				this.chat = createChat(current.messages);
+				this.interruptedTools = restored.interruptedTools;
+				this.chat = createChat(restored.messages);
 			});
 		} else {
 			this.id = newSessionId();

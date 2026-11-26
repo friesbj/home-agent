@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LiveFunctionCall } from './events';
 import type { LiveToolResponse } from './protocol';
 import { LiveToolCoordinator, type LiveToolHost } from './tool-calls';
@@ -10,7 +10,12 @@ const executed = (output: string): LiveToolResponse => ({
 });
 const confirmationRequired: LiveToolResponse = {
 	status: 'confirmation-required',
-	confirmation: { token: 'signed-token', summary: 'Turn on', targets: ['Kitchen'], expiresAt: 1 }
+	confirmation: {
+		token: 'signed-token',
+		summary: 'Turn on',
+		targets: ['Kitchen'],
+		expiresAt: Date.now() + 300_000
+	}
 };
 const turnOn = { name: 'Kitchen Light', domain: ['light'] };
 
@@ -49,7 +54,33 @@ function setup(execute: LiveToolHost['execute']) {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve));
 
+afterEach(() => vi.useRealTimers());
+
 describe('LiveToolCoordinator', () => {
+	it('expires a confirmation without executing or approving the change', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-11-26T20:30:00Z'));
+		const execute = vi.fn(async () => ({
+			status: 'confirmation-required' as const,
+			confirmation: { ...confirmationRequired.confirmation, expiresAt: Date.now() + 300_000 }
+		}));
+		const { coordinator, call, finish, outputs } = setup(execute);
+		call('call_1', 'HassTurnOn', turnOn);
+		finish();
+		await vi.advanceTimersByTimeAsync(299_999);
+		expect(coordinator.confirmation).toBeDefined();
+		expect(execute).toHaveBeenCalledOnce();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(coordinator.confirmation).toBeUndefined();
+		expect(coordinator.cards[0]).toMatchObject({
+			status: 'denied',
+			output: expect.stringMatching(/expired/)
+		});
+		expect(outputs()[0].output).toMatch(/Nothing was changed/);
+		coordinator.respond(true);
+		expect(execute).toHaveBeenCalledOnce();
+	});
+
 	it('continues the backend only after the response finished and every call has a result', async () => {
 		const results = new Map<string, ReturnType<typeof deferred<LiveToolResponse>>>();
 		const { call, finish, outputs, continuations, coordinator } = setup((pending) => {

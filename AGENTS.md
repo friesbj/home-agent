@@ -48,15 +48,14 @@ This section is the implementation plan for future coding sessions.
 - Browser-stored secrets are not a security boundary. They may be read by browser JavaScript and anyone with control of the browser origin.
 - The public/internet-ready production phase should replace browser-only secret storage with an appropriate server-side secret flow before being treated as secure.
 - On first start, the user completes an onboarding form for the essential MCP and voice settings.
-- The private MVP is designed for one user and persists browser-side conversation/action history when enabled.
-- When transcript retention is enabled, voice transcripts join the active text-chat session; otherwise they remain transient and disappear when the voice stage closes.
+- The private MVP is designed for one user. Text messages and voice transcripts are stored in browser-side chat history, with no setting to disable it; users can explicitly clear the history. Storage failures are reported.
 - A voice session ends after the tab has been hidden for 60 seconds.
 - Spoken approval is deferred (user decision, 2026-11-24): in voice mode a pending change is approved or denied only with the on-screen controls. A user who prefers a more fluid conversation can relax the confirmation policy in Settings. If spoken approval is taken up later, only an explicit, unambiguous response to the active server-issued confirmation may approve, and the server must validate the pending request.
 - Responses delegation exposes Home Assistant capabilities as application function tools routed through the existing server-side MCP gateway; MCP credentials are not sent to OpenAI's hosted MCP tool runner.
 - Delegated function calls arrive on the browser's Live data channel. The browser forwards each call to `POST /api/live/tool`, which authorizes it against the tool allowlist and the confirmation policy, runs it through the MCP gateway, and returns the text for the `function_call_output`; the browser then continues the backend response. A change that needs confirmation runs only with an approval token that the server issued for exactly that session, call, tool, and arguments (HMAC with `TOOL_APPROVAL_SECRET`, five-minute lifetime, single use per server process).
 - Speaking over the assistant does not cancel delegated work. Ending the voice session or leaving the stage abandons pending tool calls and confirmations; a change that was running or awaiting confirmation is reported in the text chat as interrupted with an unknown outcome.
 - Voice sample playback is deferred beyond M3 to avoid extra provider usage.
-- M3a makes the product voice first (user decisions, 2026-11-25; planned, not yet implemented). Text and voice are one conversation: voice turns are always written into the active chat, turn by turn, and stored like typed messages while chat history is on. The transcript-retention setting is removed, which replaces the earlier rule that voice transcripts are kept only after an explicit opt-in.
+- M3a makes the product voice first. Text and voice are one conversation: voice turns are written into the active chat, turn by turn, and stored like typed messages. The transcript-retention setting is removed, which replaces the earlier rule that voice transcripts are kept only after an explicit opt-in.
 - In M3a, ending a voice conversation leaves voice mode and shows the text view with the transcript; there is no "Back to text". A conversation also ends after 60 seconds without speech from either side.
 - In M3a, a new voice session receives the recent text of the current conversation. Home stays the start view with the orb as the main action, and voice never starts by itself.
 - In M3a, the tool calls of a voice conversation appear in the chat as the same cards as in a typed conversation. Confirmations of a voice conversation are still answered on the stage; a card in the chat never offers Approve or Deny, and a stored card can never be executed or approved again.
@@ -327,7 +326,6 @@ Possible browser-side persistence:
 Browser-side persistence must exclude:
 
 - full raw voice recordings
-- full voice transcripts unless the user explicitly enables retention
 
 Browser-side persistence may include:
 
@@ -338,7 +336,7 @@ Browser-side persistence may include:
 - voice and model preferences
 - conversation metadata and timestamps
 - redacted tool summaries
-- text chat messages when browser-side history is enabled; optional voice transcript text when separately enabled
+- text chat messages and voice transcript text in browser-side conversation history
 
 For the initial prototype, document each stored secret and provide Settings actions to view status, replace, and delete stored credentials. Browser Storage is not a security boundary.
 
@@ -480,7 +478,7 @@ The following decisions have been made:
 11. **Initial Home Assistant domains:** lights, climate, scenes, scripts, and read-only states.
 12. **GPT-Live delegation:** Responses delegation is the first implementation choice.
 13. **Mutating actions:** confirm-every-mutation is the default private-MVP preference; the confirmation policy is editable in onboarding and Settings.
-14. **History:** browser-side conversation/action history is persisted when enabled.
+14. **History:** browser-side conversation history is always enabled and can be cleared in Settings.
 15. **User model:** the private MVP supports one user.
 16. **Backend and voice defaults:** backend reasoning model and GPT-Live voice are selectable during onboarding.
 17. **Entity updates:** use Home Assistant WebSocket events.

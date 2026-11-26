@@ -2,7 +2,90 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-26
+
+### 2026-11-26T22:03:00+01:00
+
+- **M2a — scene tile titles:** `HomeView.svelte` displays long scene names on one line with an ellipsis and offers the full name in the button title and accessible name. The assistant shortcut still receives the full name.
+- **Validation:** the Chromium component suite passes six tests, including measured tile heights, overflow for names with and without spaces, and the unchanged shortcut. `npm run check` passed.
+
+### 2026-11-26T21:41:00+01:00
+
+- **M3a — local speech activity:** added Silero/ONNX speech detection on the existing microphone stream with same-origin model, worklet, and runtime assets. Speech frames extend the idle deadline; mute, cancellation, initialization timeout, failed or stalled detection, and cleanup are handled. While detection is loading or unavailable, idle ending is disabled and the stage explains why.
+- **Validation:** `npm run check` and `npx eslint .` passed; `npx vitest run` passed 198 tests; voice, history, and onboarding Playwright suites passed 27 tests against temporary development and fake MCP servers, including local model initialization and silent-stream processing. Production build passed. The normal Playwright build-and-preview startup timed out after 60 seconds on the final run; the temporary servers and configuration were removed. Full `npm run lint` reports formatting warnings in 42 files, including many unrelated files; Prettier passes for directly affected files checked in this session. Production dependency audit reported no vulnerabilities.
+- **User validation:** the user reported successful real-service tests of speech lasting over 60 seconds, the idle end, and a spoken follow-up referring to earlier typed context.
+- **Ordering decision:** the user chose to keep action cards at their arrival position rather than infer exact ordering from approximate provider timestamps; a browser regression covers a late transcript and reload.
+- **Deferred by user:** cross-tab recovery when another tab still owns a voice call remains unresolved.
+- **Final acceptance:** the user accepted best-effort transcript persistence on a sudden crash. Added browser tests for voice-picker search, filters and keyboard selection, and for denied and failed voice action cards; added endpoint coverage for unsupported voices.
+
+### 2026-11-26T21:21:06+01:00
+
+- **M3a — overlapping delegations:** `live/events.ts` tracks each active delegation by ID instead of a single lifecycle flag, keeping the idle timer paused until all concurrent work completes. The user's history-load issue appears resolved in their browser.
+- **Validation:** `npx vitest run src/lib/live/events.spec.ts src/lib/live/live-session.spec.ts` passed 34 tests, including concurrent delegation and 60-second resumed-idle regressions. Further M3a work remains in progress.
+
+### 2026-11-26T21:16:49+01:00
+
+- **M3a — legacy voice-card history:** `chat-history.ts` accepts older action cards without `label`, displaying a generic tool name rather than rejecting all saved conversations. No history is deleted or rewritten during loading; valid card data remains available.
+- **Validation:** history unit tests passed 8 tests; voice and chat-history Playwright suites passed 21 tests against a temporary development server and fake MCP. `npm run check`, ESLint, and Prettier passed. The normal Playwright build-and-preview startup exceeded its 60-second timeout; temporary helpers were removed. The user's reported error still needs confirmation against their browser data.
+
+### 2026-11-26T20:46:16+01:00
+
+- **M3a — idle and voice ordering:** `live-session.ts` counts measured assistant playback as idle activity, avoids per-frame timer rescheduling, and warns if output monitoring fails. `chat-session.svelte.ts` orders the current Live session's voice turns by the provider timeline, including late arrivals, without reordering earlier-session messages or non-voice slots.
+- **Tests:** added idle timing tests for playback without transcripts, recent transcript activity, and microphone background noise; added a browser regression for late turns and reload. The fake peer implements `getStats` so accelerated-clock tests also work with development diagnostics.
+- **Validation:** `npm run check` passed with no diagnostics; `npx vitest run` passed 188 tests; `npm run build` passed; the voice Playwright suite passed 9 tests, and the chat-history suite passed 11 tests using temporary running development and fake MCP servers. ESLint and Prettier passed on the latest affected source files.
+- **Still open:** speech detection for long user utterances, independent tracking of overlapping delegations, action-card ordering against late speech, cross-tab recovery verification, remaining acceptance coverage, and user-owned real-service checks. M3a remains in progress.
+
+### 2026-11-26T20:34:00+01:00
+
+- **M3a — interrupted calls and expiring confirmations:** restoring a saved conversation marks pending voice action cards interrupted; expired confirmations produce a denied result without executing, and failed delegations no longer leave running cards. Live context now omits voice card placeholders.
+- **Tests:** covered restored waiting/running cards, confirmation expiry and resumed idle timing, automatic-end notices, bounded Live context, a second voice session, and typed follow-up after a voice action card.
+- **Validation:** `npm run check` passed with no diagnostics; `npx vitest run` passed 185 tests; `npm run build` passed. Voice and chat-history Playwright suites passed 19 tests using an already-built preview and fake MCP server. The standard Playwright server startup timed out while waiting for the build; the temporary reuse configuration and helper servers were removed afterward. ESLint and Prettier passed on affected files.
+- **Still open:** reliable speech-based idle detection, delayed transcript/card ordering, cross-tab recovery verification, remaining acceptance coverage, and user-owned real-service checks. M3a remains in progress.
+
+### 2026-11-26T20:18:00+01:00
+
+- **M3a checkpoint:** recorded the outstanding abrupt-reload handling for running voice action cards in `Milestones.md`; M3a remains in progress.
+- **Validation:** `npm run check` passed; `npx vitest run` passed 180 tests; `npx playwright test e2e/chat-history.test.ts e2e/voice.test.ts` passed 14 tests; `npx eslint .` passed.
+
 ## 2026-11-25
+
+### 2026-11-25T12:09:00+01:00
+
+- **M3a — always-on chat history:** removed the history switch and persistence guards, ignored legacy disabled settings, retained explicit deletion, and updated onboarding, voice-stage, Settings, README, design, and project data notices. Voice read cards now have a nonempty snapshot text so they survive reload. A browser test verifies legacy migration, reload and deletion while retaining credentials; the voice flow verifies restored transcripts and cards.
+- **M3a work in progress:** isolated transcript turn IDs by Live session, bounded each context message to the server's 4,096-character limit, preserved other settings when a stored voice is unsupported, and began automatic-end notices and idle-timer corrections. These automatic-end changes still need broader M3a validation.
+- **Validation:** `npm run check` passed; targeted Vitest 59 passed; `npx playwright test e2e/chat-history.test.ts e2e/voice.test.ts` 14 passed; ESLint passed on the affected source and tests.
+
+### 2026-11-25T11:40:00+01:00
+
+- **M3a fix — voice action cards match the text mode:** voice tool calls previously showed raw JSON. Extracted a shared presentational `ToolActionCard.svelte` and `tool-output.ts` formatter; both the text-mode `ToolCallCard` and the chat's voice action cards now render the same badge, mono tool name, status, and a collapsible "Show result" with pretty-printed JSON. Added `label` to `LiveToolCard`.
+- **Changed:** `src/lib/components/ToolActionCard.svelte` (new), `src/lib/home/tool-output.ts` (new), `src/lib/components/ToolCallCard.svelte`, `src/lib/components/ChatPanel.svelte`, `src/lib/live/tool-calls.ts`, `src/lib/home/chat-history.ts`, `e2e/voice.test.ts`.
+- **Validation:** `npm run check` 0 errors; full Vitest 178 passed; voice e2e 3 passed.
+
+### 2026-11-25T11:00:00+01:00
+
+- **M3a implementation — action cards and natural voice catalog:** the Live tool coordinator publishes serializable action cards; ChatPanel stores/upserts them and shows status without approval controls. Settings replaces the free-text voice field with a catalog-based picker for 24 natural voices; Gleam is the default and the stage shows name and character line.
+- **Validation:** full Vitest 178 passed; voice e2e 3 passed; `npm run check` 0 errors.
+
+### 2026-11-25T09:46:00+01:00
+
+- **M3a implementation — live turns and context:** voice transcript turns are published while fragments grow, upserted by stable turn ID in the active chat, and marked as voice messages. The live session request now seeds `session.input` from the newest text messages.
+- **Changed:** `src/lib/live/events.ts`, `src/lib/live/live-session.ts`, `src/lib/live/protocol.ts`, `src/lib/server/live/session.ts`, `src/lib/home/chat-history.ts`, `src/lib/home/chat-session.svelte.ts`, `src/lib/components/ChatPanel.svelte`, and focused specs.
+- **Validation:** `npm run check` 0 errors; full Vitest 177 passed; voice e2e 3 passed.
+- **Milestone:** M3a - live turn updates, voice markers, and session context.
+
+### 2026-11-25T09:24:00+01:00
+
+- **M3a implementation — End means leave:** removed the Ready state and Back-to-text control from the VoiceStage. End, Escape, setup/error Close, and the page close action now leave immediately to the text view.
+- **Changed:** `src/lib/live/live-session.ts` gained `leave()` to stop and detach the microphone synchronously while provider shutdown continues; `+page.svelte` calls it before starting the async session close. Updated VoiceStage, gallery, unit/component tests, and voice e2e expectations.
+- **Validation:** `npm run check` 0 errors; Live controller tests 21 passed; VoiceStage component tests 17 passed; voice e2e 3 passed.
+- **Milestone:** M3a - End means leave.
+
+### 2026-11-25T09:14:00+01:00
+
+- **M3a implementation — transcript standard:** removed `history.retainTranscripts` from the settings schema and Settings UI. A stored value is ignored by Zod parsing. `appendVoiceTranscript` now appends voice turns whenever chat history is enabled, and the VoiceStage first-use copy documents that behavior.
+- **Changed:** `src/lib/config/settings.ts`, `src/lib/components/SettingsForm.svelte`, `src/lib/home/chat-session.svelte.ts`, `src/lib/components/VoiceStage.svelte`, `e2e/voice.test.ts`, `README.md`, `Milestones.md`, and settings/component tests.
+- **Validation:** `npm run check` 0 errors; settings/live unit tests 30 passed; Settings/Voice component tests 22 passed; `npx playwright test e2e/voice.test.ts` 3 passed.
+- **Milestone:** M3a - Make voice transcripts standard.
 
 ### 2026-11-25T08:55:00+01:00
 

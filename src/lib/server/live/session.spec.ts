@@ -17,13 +17,37 @@ describe('provisionLiveSession', () => {
 		).toBe(false);
 	});
 
+	it('bounds session input by message count and character count', () => {
+		const base = {
+			sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n',
+			input: [{ role: 'user', text: 'Hello' }]
+		};
+		expect(liveSessionRequestSchema.parse(base).input).toEqual(base.input);
+		expect(
+			liveSessionRequestSchema.safeParse({
+				...base,
+				input: Array.from({ length: 129 }, () => ({ role: 'user', text: 'Hello' }))
+			}).success
+		).toBe(false);
+		expect(
+			liveSessionRequestSchema.safeParse({
+				...base,
+				input: [
+					{ role: 'user', text: 'x'.repeat(4096) },
+					{ role: 'assistant', text: 'y'.repeat(4096) },
+					{ role: 'user', text: 'z' }
+				]
+			}).success
+		).toBe(false);
+	});
+
 	it('reports why the provider rejected a request, except for credential errors', async () => {
 		const rejected = (status: number) =>
 			provisionLiveSession({
 				apiKey: 'test-key',
 				sdp: 'offer',
 				backendModel: 'gpt-6-astra',
-				voice: 'marin',
+				voice: 'gleam',
 				timeoutMs: 1000,
 				fetcher: async () =>
 					Response.json(
@@ -59,6 +83,10 @@ describe('provisionLiveSession', () => {
 			sdp: 'v=0\r\noffer',
 			backendModel: 'gpt-6-astra',
 			voice: 'nuri',
+			input: [
+				{ role: 'user', text: 'Turn on the kitchen light.' },
+				{ role: 'assistant', text: 'The kitchen light is on.' }
+			],
 			timeoutMs: 1000,
 			fetcher
 		});
@@ -71,6 +99,7 @@ describe('provisionLiveSession', () => {
 			session: {
 				model: string;
 				audio: { output: { voice: string } };
+				input: { type: string; role: string; content: unknown[] }[];
 				delegation: { type: string; responses: { model: string } };
 			};
 			transport: { type: string; sdp: string };
@@ -78,6 +107,18 @@ describe('provisionLiveSession', () => {
 		expect(body.session).toMatchObject({
 			model: 'gpt-live-1.1',
 			audio: { output: { voice: 'nuri' } },
+			input: [
+				{
+					type: 'message',
+					role: 'user',
+					content: [{ type: 'input_text', text: 'Turn on the kitchen light.' }]
+				},
+				{
+					type: 'message',
+					role: 'assistant',
+					content: [{ type: 'output_text', text: 'The kitchen light is on.' }]
+				}
+			],
 			delegation: { type: 'responses', responses: { model: 'gpt-6-astra' } }
 		});
 		expect(body.transport).toEqual({ type: 'webrtc', sdp: 'v=0\r\noffer' });
@@ -94,7 +135,7 @@ describe('provisionLiveSession', () => {
 				apiKey: 'test-key',
 				sdp: 'offer',
 				backendModel: 'gpt-6-astra',
-				voice: 'marin',
+				voice: 'gleam',
 				timeoutMs: 1000,
 				fetcher
 			})
@@ -113,7 +154,7 @@ describe('provisionLiveSession', () => {
 				apiKey: 'test-key',
 				sdp: 'offer',
 				backendModel: 'gpt-6-astra',
-				voice: 'marin',
+				voice: 'gleam',
 				timeoutMs: 1000,
 				fetcher
 			})

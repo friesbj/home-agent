@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import '../../routes/layout.css';
 import HomeView from './HomeView.svelte';
 import { appConfig } from '$lib/config/app-config.svelte';
 import { defaultConfirmationPolicy, defaultSettings } from '$lib/config/settings';
@@ -123,6 +124,43 @@ describe('HomeView', () => {
 		const onshortcut = renderHome();
 		await page.getByRole('button', { name: 'Movie' }).click();
 		expect(onshortcut).toHaveBeenCalledWith('Activate the scene "Movie".');
+	});
+
+	it('truncates long scene names without changing tile height or the shortcut', async () => {
+		configure();
+		const longName = 'A very long scene name that does not fit on the tile';
+		const unbrokenName = 'AnExtremelyLongSceneNameWithoutSpaces';
+		serve({
+			areas: [
+				{
+					name: 'Lounge',
+					entities: [
+						entity('Movie', 'unknown', 'Lounge', 'scene'),
+						entity(longName, 'unknown', 'Lounge', 'scene'),
+						entity(unbrokenName, 'unknown', 'Lounge', 'scene')
+					]
+				}
+			]
+		});
+
+		const onshortcut = renderHome();
+		const shortTile = page.getByRole('button', { name: 'Movie' });
+		const longTile = page.getByRole('button', { name: longName });
+		await expect.element(longTile).toBeVisible();
+		const shortHeight = shortTile.element().getBoundingClientRect().height;
+		for (const name of [longName, unbrokenName]) {
+			const tile = page.getByRole('button', { name }).element();
+			const label = tile.lastElementChild;
+			if (!(label instanceof HTMLElement)) throw new Error('Scene label is missing.');
+			expect(tile.getBoundingClientRect().height).toBe(shortHeight);
+			expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+			expect(getComputedStyle(label).textOverflow).toBe('ellipsis');
+			expect(getComputedStyle(label).whiteSpace).toBe('nowrap');
+			expect(getComputedStyle(label).overflowX).toBe('hidden');
+			expect(tile.getAttribute('title')).toBe(name);
+		}
+		await longTile.click();
+		expect(onshortcut).toHaveBeenCalledWith(`Activate the scene "${longName}".`);
 	});
 
 	it('explains why scene shortcuts are unavailable', async () => {

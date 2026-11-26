@@ -49,9 +49,15 @@ Mutating-action confirmation supports a default "confirm every mutation" policy 
 
 The private test MVP may store API and MCP credentials in Browser Storage. Browser Storage is not a secure production boundary: JavaScript and any attacker with control over the browser origin can read its values.
 
-When text chat history is enabled (the default), text messages are stored unencrypted in this browser as separate conversations. A new tab, browser restart, or reload starts a new conversation; use the Conversation selector to continue an earlier one. Returning from Settings keeps the current conversation. The old single-conversation history is deleted on transition; settings and credentials are unaffected. Do not enter credentials in chat. Switching conversations cancels the response and pending approvals, but an action already started may have an unknown outcome: check Home Assistant before retrying. Tool inputs, outputs, and approvals are not stored or restored. Disabling history stops loading and saving it but keeps existing history until it is explicitly cleared in Settings or all data is reset.
+Text messages, voice transcripts, and voice tool results are stored unencrypted in this browser as separate conversations; history cannot be disabled. Clear it explicitly in Settings or reset all data. A new tab, browser restart, or reload starts a new conversation; use the Conversation selector to continue an earlier one. Returning from Settings keeps the current conversation. The old single-conversation history is deleted on transition; settings and credentials are unaffected. Do not enter credentials in chat. Switching conversations cancels the response and pending approvals, but an action already started may have an unknown outcome: check Home Assistant before retrying. Text-mode tool inputs, outputs, and approvals are not restored; voice action cards may include tool results.
 
-Voice conversations are transient by default: captions disappear when the voice stage closes, and audio is never stored. With "Also add voice conversations to the chat as text" enabled in Settings, the turns of a finished voice session are added to the current conversation and saved with it. A voice session ends after 60 seconds in a hidden tab. Leaving voice while a device change is running or awaiting confirmation abandons it; the chat then notes that the outcome is unknown.
+Do not open a conversation in another tab while its voice session is active: a pending action may be shown as interrupted and concurrent history writes can conflict. Cross-tab recovery is not yet supported.
+
+Voice captions disappear when the voice stage closes, but voice turns are kept in the current conversation. Audio is never stored. A voice session ends after 60 seconds in a hidden tab. Leaving voice while a device change is running or awaiting confirmation abandons it; the chat then notes that the outcome is unknown. A confirmation that reaches its server-issued expiry is not executed.
+
+Voice transcripts are saved as they arrive, but an immediate browser or tab crash may lose the latest fragment. Action cards retain their arrival position, so a delayed transcript may appear after an action that followed it in speech.
+
+The idle timeout uses transcript events, measured assistant audio, and local speech detection on the existing microphone stream. Its speech model and WebAssembly runtime are served by this application; detection sends no audio to another service and does not save it. Detection is approximate and adds a model and runtime download on first use. While detection is loading, or if it fails, the idle timeout is disabled and the stage explains why; use End to finish. The hidden-tab and provider session limits still apply.
 
 Assistant messages display Markdown, including tables and code blocks; your own messages remain plain text. Raw HTML is shown as text, unsafe links are removed, and Markdown images are shown as alt text rather than loaded.
 
@@ -78,23 +84,23 @@ Home Agent targets the official Home Assistant **Model Context Protocol** integr
 
 The gateway only exposes an allowlist of Assist tools (`src/lib/home/ha-policy.ts`):
 
-| Kind | Tools | Behavior |
-| --- | --- | --- |
-| Read | `GetLiveContext`, `GetDateTime`, `HassGetState`, `HassGetWeather`, `HassClimateGetTemperature` | Run without confirmation |
-| Change | `HassTurnOn`, `HassTurnOff` (with `domain`), `HassLightSet`, `HassClimateSetTemperature` | Only for `light`, `climate`, `scene`, `script`; confirmation according to the Settings policy |
-| Blocked | Everything else, including the administrator "Call action" tool | Never shown to the model |
+| Kind    | Tools                                                                                          | Behavior                                                                                      |
+| ------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Read    | `GetLiveContext`, `GetDateTime`, `HassGetState`, `HassGetWeather`, `HassClimateGetTemperature` | Run without confirmation                                                                      |
+| Change  | `HassTurnOn`, `HassTurnOff` (with `domain`), `HassLightSet`, `HassClimateSetTemperature`       | Only for `light`, `climate`, `scene`, `script`; confirmation according to the Settings policy |
+| Blocked | Everything else, including the administrator "Call action" tool                                | Never shown to the model                                                                      |
 
 Confirmations are enforced on the server: approval requests are HMAC-signed (`TOOL_APPROVAL_SECRET`), so a modified or forged approval from the browser is rejected, and every tool call is re-checked against the allowlist before it is executed. This holds for text and voice; in voice, an approval is bound to one call and its arguments, expires after five minutes, and is accepted once. `MCP_ALLOW_MUTATIONS=false` turns off all device changes.
 
 ## API Endpoints
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/chat` | Streaming text chat with Home Assistant tools and tool approvals |
-| `POST /api/mcp/discover` | Connection test; lists MCP tools with their allowlist classification |
-| `POST /api/home/state` | Read-only area/entity snapshot from `GetLiveContext` |
+| Endpoint                 | Purpose                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/chat`         | Streaming text chat with Home Assistant tools and tool approvals                                                    |
+| `POST /api/mcp/discover` | Connection test; lists MCP tools with their allowlist classification                                                |
+| `POST /api/home/state`   | Read-only area/entity snapshot from `GetLiveContext`                                                                |
 | `POST /api/live/session` | Exchanges the browser's WebRTC offer for a GPT-Live session answer and registers the allowlisted tools as functions |
-| `POST /api/live/tool` | Authorizes and runs one tool call delegated by a voice session; issues and verifies confirmations |
+| `POST /api/live/tool`    | Authorizes and runs one tool call delegated by a voice session; issues and verifies confirmations                   |
 
 The browser sends the MCP address in the JSON body and the stored credentials in the `x-openai-api-key` and `x-mcp-token` headers to this application's own server only.
 
@@ -130,19 +136,19 @@ npm run format       # Format files
 
 Copy `.env.example` to `.env`. All variables are optional and validated at server startup; invalid values stop the server with a message that names the variable without echoing its value.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | unset | Server fallback key when the browser has none |
-| `OPENAI_TEXT_MODEL` | `gpt-6-astra` | Default text chat model |
-| `MCP_ALLOW_PRIVATE_HOSTS` | `true` in dev, `false` in production | Allow loopback/private-network MCP hosts |
-| `MCP_ALLOW_INSECURE_HTTP` | `true` in dev, `false` in production | Allow `http://` MCP addresses |
-| `MCP_ALLOW_MUTATIONS` | `true` | Expose device-changing tools at all |
-| `MCP_TIMEOUT_MS` | `15000` | MCP connection and tool-call timeout |
-| `TOOL_APPROVAL_SECRET` | random per process | HMAC secret (≥ 32 chars) for signed tool approvals |
-| `ALLOWED_ORIGINS` | none | Extra origins allowed to call `/api` |
-| `RATE_LIMIT_MAX_REQUESTS` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000` | Per-client API rate limit |
-| `REQUEST_TIMEOUT_MS` | `60000` | Maximum model request duration |
-| `MAX_REQUEST_BODY_BYTES` | `1000000` | Maximum API request body |
+| Variable                                           | Default                              | Purpose                                            |
+| -------------------------------------------------- | ------------------------------------ | -------------------------------------------------- |
+| `OPENAI_API_KEY`                                   | unset                                | Server fallback key when the browser has none      |
+| `OPENAI_TEXT_MODEL`                                | `gpt-6-astra`                        | Default text chat model                            |
+| `MCP_ALLOW_PRIVATE_HOSTS`                          | `true` in dev, `false` in production | Allow loopback/private-network MCP hosts           |
+| `MCP_ALLOW_INSECURE_HTTP`                          | `true` in dev, `false` in production | Allow `http://` MCP addresses                      |
+| `MCP_ALLOW_MUTATIONS`                              | `true`                               | Expose device-changing tools at all                |
+| `MCP_TIMEOUT_MS`                                   | `15000`                              | MCP connection and tool-call timeout               |
+| `TOOL_APPROVAL_SECRET`                             | random per process                   | HMAC secret (≥ 32 chars) for signed tool approvals |
+| `ALLOWED_ORIGINS`                                  | none                                 | Extra origins allowed to call `/api`               |
+| `RATE_LIMIT_MAX_REQUESTS` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000`                       | Per-client API rate limit                          |
+| `REQUEST_TIMEOUT_MS`                               | `60000`                              | Maximum model request duration                     |
+| `MAX_REQUEST_BODY_BYTES`                           | `1000000`                            | Maximum API request body                           |
 
 Browser Storage keys are versioned under the `home-agent.` prefix: `home-agent.settings.v1`, `home-agent.confirmation-policy.v1`, `home-agent.secrets.v1`, and one `home-agent.chat-session.v1.<id>` key per saved conversation. Session history requires the browser Web Locks API (normally available on HTTPS or localhost) to avoid conflicting writes; chat remains usable without history when it is unavailable.
 

@@ -64,10 +64,12 @@ type ToolRequestBody = {
 
 interface SetupOptions {
 	getUserMedia?: LiveRuntime['getUserMedia'];
+	createVoiceActivityMonitor?: LiveRuntime['createVoiceActivityMonitor'];
 	permission?: PermissionState | 'unknown';
 	/** Answer of the session endpoint when it should fail. */
 	sessionFailure?: () => Response;
 	onTranscript?: (turns: LiveTranscriptTurn[]) => void;
+	onAutoEnd?: (reason: 'idle' | 'hidden' | 'expired') => void;
 	tool?: (body: ToolRequestBody) => LiveToolResponse | Promise<LiveToolResponse>;
 }
 
@@ -154,6 +156,8 @@ describe('LiveSessionController', () => {
 			queryMicrophonePermission: async () => options.permission ?? 'granted',
 			createPeerConnection: () => peer,
 			createAudioContext: () => audioContext,
+			createVoiceActivityMonitor:
+				options.createVoiceActivityMonitor ?? vi.fn(async () => ({ dispose: async () => {} })),
 			fetcher,
 			requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
 				frameCallback = callback;
@@ -169,7 +173,7 @@ describe('LiveSessionController', () => {
 			getConfiguration: () => ({
 				apiKey: 'browser-test-key',
 				backendModel: 'gpt-6-astra',
-				voice: 'marin',
+				voice: 'gleam',
 				mcp: {
 					url: 'https://ha.example.com/api/mcp',
 					transport: 'streamable-http',
@@ -178,6 +182,7 @@ describe('LiveSessionController', () => {
 			}),
 			onTranscript: options.onTranscript,
 			onInterrupted,
+			onAutoEnd: options.onAutoEnd,
 			runtime
 		});
 		const audio = { srcObject: null, play: vi.fn(async () => {}) } as unknown as HTMLAudioElement;
@@ -245,7 +250,8 @@ describe('LiveSessionController', () => {
 		expect(JSON.parse(String(init?.body))).toEqual({
 			sdp: SDP,
 			backendModel: 'gpt-6-astra',
-			voice: 'marin',
+			voice: 'gleam',
+			input: [],
 			mcp: { url: 'https://ha.example.com/api/mcp', transport: 'streamable-http' }
 		});
 		const headers = new Headers(init?.headers);
@@ -295,11 +301,21 @@ describe('LiveSessionController', () => {
 		expect(track.stop).toHaveBeenCalledOnce();
 		expect(peer.close).toHaveBeenCalledOnce();
 		expect(audio.srcObject).toBeNull();
-		expect(states.at(-1)).toEqual({ kind: 'ready' });
-		expect(onTranscript).toHaveBeenCalledOnce();
-		expect(onTranscript).toHaveBeenCalledWith([
-			{ role: 'user', startMs: 1000, endMs: 1200, text: 'Turn on the light.' },
-			{ role: 'assistant', startMs: 1100, endMs: 1300, text: 'The light is on.' }
+		expect(states.at(-1)).toEqual({ kind: 'needs-microphone' });
+		expect(onTranscript).toHaveBeenCalled();
+		expect(onTranscript).toHaveBeenLastCalledWith([
+			expect.objectContaining({
+				role: 'user',
+				startMs: 1000,
+				endMs: 1200,
+				text: 'Turn on the light.'
+			}),
+			expect.objectContaining({
+				role: 'assistant',
+				startMs: 1100,
+				endMs: 1300,
+				text: 'The light is on.'
+			})
 		]);
 	});
 
@@ -316,7 +332,7 @@ describe('LiveSessionController', () => {
 
 		// No leftover shutdown timer may tear down a later session.
 		await vi.advanceTimersByTimeAsync(20_000);
-		expect(context.states.at(-1)).toEqual({ kind: 'ready' });
+		expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' });
 		expect(context.peer.close).toHaveBeenCalledOnce();
 	});
 
@@ -326,7 +342,7 @@ describe('LiveSessionController', () => {
 			return { canStart: await controller.prepare(), state: states.at(-1) };
 		};
 
-		expect(await prepared('granted')).toEqual({ canStart: true, state: { kind: 'ready' } });
+		expect(await prepared('granted')).toEqual({ canStart: true, state: undefined });
 		expect(await prepared('prompt')).toEqual({
 			canStart: false,
 			state: { kind: 'needs-microphone', blocked: false }
@@ -396,8 +412,9 @@ describe('LiveSessionController', () => {
 		expect(peer.createDataChannel).not.toHaveBeenCalled();
 	});
 
-	it('keeps the session open on error events and ends it on session.closed', async () => {
-		const context = setup();
+	it('keeps the session open on error events and leaves when the time limit is reached', async () => {
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
 		await context.connect();
 
 		context.emit({
@@ -412,10 +429,8 @@ describe('LiveSessionController', () => {
 		expect(context.peer.close).not.toHaveBeenCalled();
 
 		context.emit({ type: 'session.closed', reason: 'expired' });
-		expect(context.states.at(-1)).toEqual({
-			kind: 'error',
-			message: 'The session reached its time limit. Start a new conversation to continue.'
-		});
+		expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' });
+		expect(onAutoEnd).toHaveBeenCalledWith('expired');
 		expect(context.peer.close).toHaveBeenCalledOnce();
 	});
 
@@ -492,6 +507,260 @@ describe('LiveSessionController', () => {
 		expect(controller.audioLevel).toBeLessThan(peak);
 	});
 
+	it('ends after 60 seconds without transcript or assistant audio activity', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('does not end during assistant playback without transcript deltas', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		context.peerMock.ontrack?.({ streams: [{} as MediaStream], track: {} as MediaStreamTrack });
+
+		await vi.advanceTimersByTimeAsync(59_000);
+		context.setSampleValue(132);
+		context.runAudioFrame(59_000);
+		await vi.advanceTimersByTimeAsync(30_000);
+		context.runAudioFrame(89_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+
+		context.setSampleValue(128);
+		context.runAudioFrame(90_000);
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('starts a full idle period after the most recent transcript', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(59_000);
+		context.emit({
+			type: 'session.input_transcript.delta',
+			start_ms: 1000,
+			end_ms: 1500,
+			delta: 'Hello.'
+		});
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('does not treat microphone background noise as detected speech', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(59_000);
+		context.setSampleValue(140);
+		context.runAudioFrame(59_000);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('keeps the session alive during detected speech and starts idle after the last speech frame', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		let speech = () => {};
+		const context = setup({
+			onAutoEnd,
+			createVoiceActivityMonitor: async (_stream, _audio, onSpeech) => {
+				speech = onSpeech;
+				return { dispose: async () => {} };
+			}
+		});
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(59_000);
+		speech();
+		await vi.advanceTimersByTimeAsync(59_000);
+		speech();
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('ignores speech callbacks while muted', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		let speech = () => {};
+		const context = setup({
+			onAutoEnd,
+			createVoiceActivityMonitor: async (_stream, _audio, onSpeech) => {
+				speech = onSpeech;
+				return { dispose: async () => {} };
+			}
+		});
+		await context.connect();
+		context.controller.toggleMicrophone();
+		await vi.advanceTimersByTimeAsync(59_000);
+		speech();
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('warns and disables idle on speech monitor failure', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		let fail = () => {};
+		const context = setup({
+			onAutoEnd,
+			createVoiceActivityMonitor: async (_stream, _audio, _speech, onFailure) => {
+				fail = onFailure;
+				return { dispose: async () => {} };
+			}
+		});
+		await context.connect();
+		fail();
+		expect(context.states.at(-1)).toMatchObject({
+			notice: expect.stringContaining('inactivity timeout is disabled')
+		});
+		await vi.advanceTimersByTimeAsync(120_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+	});
+
+	it('disables idle when speech monitor initialization fails', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({
+			onAutoEnd,
+			createVoiceActivityMonitor: async () => {
+				throw new Error('model unavailable');
+			}
+		});
+		await context.connect();
+		expect(context.states.at(-1)).toMatchObject({
+			notice: expect.stringContaining('inactivity timeout is disabled')
+		});
+		await vi.advanceTimersByTimeAsync(120_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+	});
+
+	it('warns when speech detection takes too long to start and disposes a late result', async () => {
+		vi.useFakeTimers();
+		let finish!: (monitor: { dispose: () => Promise<void> }) => void;
+		const dispose = vi.fn(async () => {});
+		const context = setup({
+			createVoiceActivityMonitor: () => new Promise((resolve) => (finish = resolve))
+		});
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(15_000);
+		expect(context.states.at(-1)).toMatchObject({
+			notice: expect.stringContaining('inactivity timeout is disabled')
+		});
+		finish({ dispose });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(dispose).toHaveBeenCalledOnce();
+	});
+
+	it('disposes a monitor initialized after cancellation and ignores its callbacks', async () => {
+		let finish!: (monitor: { dispose: () => Promise<void> }) => void;
+		let speech = () => {};
+		const dispose = vi.fn(async () => {});
+		const context = setup({
+			createVoiceActivityMonitor: async (_stream, _audio, onSpeech) => {
+				speech = onSpeech;
+				return new Promise((resolve) => (finish = resolve));
+			}
+		});
+		await context.connect();
+		context.controller.leave();
+		const ending = context.controller.end();
+		context.emit({ type: 'session.closed', reason: 'close_requested' });
+		await ending;
+		finish({ dispose });
+		await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce());
+		speech();
+		expect(context.states.at(-1)).toMatchObject({ kind: 'needs-microphone' });
+	});
+
+	it('ignores unrelated events and pauses the idle timer while delegation runs', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(30_000);
+		context.emit({ type: 'session.usage.updated' });
+		await vi.advanceTimersByTimeAsync(29_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		context.emit({ type: 'session.delegation.created', delegation: { id: 'delegation_1' } });
+		await vi.advanceTimersByTimeAsync(90_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		context.backend({ type: 'response.completed' });
+		await vi.advanceTimersByTimeAsync(30_000);
+		context.emit({ type: 'session.usage.updated' });
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('keeps idle paused until every concurrent delegation finishes', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		context.emit({ type: 'session.delegation.created', delegation: { id: 'first' } });
+		context.emit({ type: 'session.delegation.created', delegation: { id: 'second' } });
+		context.emit({
+			type: 'response.event',
+			delegation_id: 'first',
+			event: { type: 'response.completed' }
+		});
+		await vi.advanceTimersByTimeAsync(120_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		context.emit({
+			type: 'response.event',
+			delegation_id: 'second',
+			event: { type: 'response.completed' }
+		});
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('pauses idle until a waiting confirmation expires, then starts a new idle period', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({
+			onAutoEnd,
+			tool: () => ({
+				status: 'confirmation-required',
+				confirmation: {
+					token: 'signed-token',
+					summary: 'Turn on',
+					targets: [],
+					expiresAt: Date.now() + 300_000
+				}
+			})
+		});
+		await context.connect();
+		context.functionCall('call_1', 'HassTurnOn', { name: 'Kitchen Light', domain: ['light'] });
+		context.backend({ type: 'response.completed' });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(context.states.at(-1)).toMatchObject({ confirmation: { summary: 'Turn on' } });
+		await vi.advanceTimersByTimeAsync(300_000);
+		expect(context.states.at(-1)).toMatchObject({ confirmation: undefined });
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
 	it('hints at a silent microphone until sound was measured once', async () => {
 		const context = setup();
 		const notice = () => {
@@ -525,14 +794,19 @@ describe('LiveSessionController', () => {
 
 		context.peerMock.ontrack?.({ streams: [{} as MediaStream], track: {} as MediaStreamTrack });
 
-		expect(context.states.at(-1)).toMatchObject({ kind: 'connected', speaking: false });
+		expect(context.states.at(-1)).toMatchObject({
+			kind: 'connected',
+			speaking: false,
+			notice: expect.stringContaining('Assistant audio activity could not be monitored')
+		});
 		expect(context.audio.play).toHaveBeenCalledOnce();
 		expect(context.peer.close).not.toHaveBeenCalled();
 	});
 
 	it('ends a connected session after the tab remains hidden for 60 seconds', async () => {
 		vi.useFakeTimers();
-		const context = setup();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
 		await context.connect();
 
 		context.setHidden(true);
@@ -540,8 +814,9 @@ describe('LiveSessionController', () => {
 		expect(context.sent()).toEqual([]);
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(context.sent()).toEqual([{ type: 'session.close' }]);
+		expect(onAutoEnd).toHaveBeenCalledWith('hidden');
 		context.emit({ type: 'session.closed' });
-		await vi.waitFor(() => expect(context.states.at(-1)).toEqual({ kind: 'ready' }));
+		await vi.waitFor(() => expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' }));
 	});
 
 	it('retains transcript turns when the server does not confirm shutdown', async () => {
@@ -565,7 +840,12 @@ describe('LiveSessionController', () => {
 			message: 'The server did not confirm session shutdown.'
 		});
 		expect(onTranscript).toHaveBeenCalledWith([
-			{ role: 'user', startMs: 1000, endMs: 1500, text: 'Is the door locked?' }
+			expect.objectContaining({
+				role: 'user',
+				startMs: 1000,
+				endMs: 1500,
+				text: 'Is the door locked?'
+			})
 		]);
 	});
 
@@ -614,7 +894,7 @@ describe('LiveSessionController', () => {
 								token: 'signed-token',
 								summary: 'Turn on / activate: name "Kitchen Light" (light)',
 								targets: ['Kitchen Light'],
-								expiresAt: 1
+								expiresAt: Date.now() + 300_000
 							}
 						}
 		});
@@ -657,7 +937,12 @@ describe('LiveSessionController', () => {
 		const context = setup({
 			tool: () => ({
 				status: 'confirmation-required',
-				confirmation: { token: 'signed-token', summary: 'Turn on', targets: [], expiresAt: 1 }
+				confirmation: {
+					token: 'signed-token',
+					summary: 'Turn on',
+					targets: [],
+					expiresAt: Date.now() + 300_000
+				}
 			})
 		});
 		await context.connect();

@@ -71,7 +71,6 @@ describe('SettingsForm', () => {
 	it('shows only the essential fields and opens Advanced settings for hidden errors', async () => {
 		const onsave = renderForm();
 		await expect.element(page.getByText('Advanced settings', { exact: true })).toBeVisible();
-		await expect.element(page.getByLabelText('Voice', { exact: true })).not.toBeVisible();
 		await expect
 			.element(page.getByText('Every change to your home asks for your confirmation first.'))
 			.toBeVisible();
@@ -79,13 +78,14 @@ describe('SettingsForm', () => {
 		await page.getByLabelText(/Server address/).fill('https://mcp.example.com');
 		await page.getByLabelText('Access token', { exact: true }).fill('token-123');
 		await page.getByText('Advanced settings', { exact: true }).click();
-		await page.getByLabelText('Voice', { exact: true }).fill('not a voice!');
+		await expect
+			.element(page.getByText(/Text messages, voice transcripts, and voice tool results/))
+			.toBeVisible();
+		await expect.element(page.getByRole('radio', { name: /Gleam/ })).toBeChecked();
+		await page.getByRole('radio', { name: /Vesper/ }).click();
 		await page.getByText('Advanced settings', { exact: true }).click();
-		await expect.element(page.getByLabelText('Voice', { exact: true })).not.toBeVisible();
 
 		await page.getByRole('button', { name: 'Save' }).click();
-		await expect.element(page.getByLabelText('Voice', { exact: true })).toBeVisible();
-		await expect.element(page.getByLabelText('Voice', { exact: true })).toHaveFocus();
-		expect(onsave).not.toHaveBeenCalled();
+		expect(onsave).toHaveBeenCalledOnce();
 	});
 });

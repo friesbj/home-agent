@@ -304,7 +304,9 @@ test('reports invalid stored sessions without overwriting them', async ({ page }
 	).toBe('{broken');
 });
 
-test('honors disabled history and clear history while preserving credentials', async ({ page }) => {
+test('enables history for legacy disabled settings and clears it without removing credentials', async ({
+	page
+}) => {
 	await page.route('**/api/chat', (route) =>
 		route.fulfill({
 			headers: { 'content-type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
@@ -318,27 +320,26 @@ test('honors disabled history and clear history while preserving credentials', a
 		})
 	);
 	await setup(page);
+	await page.evaluate(() => {
+		const key = 'home-agent.settings.v1';
+		const stored = JSON.parse(localStorage.getItem(key)!);
+		stored.data.history = { enabled: false };
+		localStorage.setItem(key, JSON.stringify(stored));
+	});
+	await page.reload();
 	await send(page, 'Saved message');
 	await expect(page.getByText('OK')).toBeVisible();
+	const saved = page.getByLabel('Conversation').locator('option', { hasText: 'Saved message' });
+	await expect(saved).toHaveCount(1);
 	await page.getByRole('link', { name: 'Settings' }).click();
 	await page.getByText('Advanced settings', { exact: true }).click();
-	await page.getByLabel('Keep text chat history in this browser').uncheck();
-	await page.getByRole('button', { name: 'Save settings' }).click();
+	await expect(page.getByLabel('Keep text chat history in this browser')).toHaveCount(0);
 	await page.getByRole('link', { name: 'Back to assistant' }).click();
 	await expect(page.getByText('Saved message', { exact: true })).toBeVisible();
-	await send(page, 'Not saved');
-	await expect(page.getByText('Not saved', { exact: true })).toBeVisible();
 	await page.reload();
-	await expect(page.getByText('Not saved', { exact: true })).toHaveCount(0);
-	await page.getByRole('link', { name: 'Settings' }).click();
-	await page.getByText('Advanced settings', { exact: true }).click();
-	await page.getByLabel('Keep text chat history in this browser').check();
-	await page.getByRole('button', { name: 'Save settings' }).click();
-	await page.getByRole('link', { name: 'Back to assistant' }).click();
 	const old = page.getByLabel('Conversation').locator('option', { hasText: 'Saved message' });
 	await page.getByLabel('Conversation').selectOption((await old.getAttribute('value')) as string);
 	await expect(page.getByText('Saved message', { exact: true })).toBeVisible();
-	await expect(page.getByText('Not saved', { exact: true })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Settings' }).click();
 	await page.getByText('Data and privacy', { exact: true }).click();
 	await page.getByRole('button', { name: 'Clear chat history' }).click();

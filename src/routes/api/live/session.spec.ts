@@ -47,7 +47,7 @@ describe('POST /api/live/session', () => {
 		vi.stubGlobal('fetch', fetcher);
 
 		const response = await POST(
-			request({ sdp: offer, backendModel: 'gpt-6-astra', voice: 'marin' })
+			request({ sdp: offer, backendModel: 'gpt-6-astra', voice: 'gleam' })
 		);
 
 		expect(response.status).toBe(201);
@@ -116,6 +116,16 @@ describe('POST /api/live/session', () => {
 		vi.stubGlobal('fetch', fetcher);
 
 		await expect(POST(request({ sdp: 'not-an-offer' }))).rejects.toMatchObject({ status: 400 });
+		expect(fetcher).not.toHaveBeenCalled();
+	});
+
+	it('rejects voices outside the natural voice catalog before contacting OpenAI', async () => {
+		const fetcher = vi.fn<typeof fetch>();
+		vi.stubGlobal('fetch', fetcher);
+
+		await expect(POST(request({ sdp: offer, voice: 'marin' }))).rejects.toMatchObject({
+			status: 400
+		});
 		expect(fetcher).not.toHaveBeenCalled();
 	});
 

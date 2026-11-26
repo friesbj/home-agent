@@ -4,10 +4,12 @@ export interface LiveTranscriptState {
 	heardText: string;
 	spokenText: string;
 	thinking: boolean;
+	activeDelegations: string[];
 	turns: LiveTranscriptTurn[];
 }
 
 export interface LiveTranscriptTurn {
+	id?: string;
 	role: 'user' | 'assistant';
 	text: string;
 	startMs?: number;
@@ -20,6 +22,7 @@ export const initialLiveTranscriptState: LiveTranscriptState = {
 	heardText: '',
 	spokenText: '',
 	thinking: false,
+	activeDelegations: [],
 	turns: []
 };
 
@@ -73,6 +76,7 @@ export function reduceLiveTranscript(
 			};
 		} else {
 			turns.push({
+				id: `${role}-${startMs ?? turns.length}`,
 				role,
 				text: event.delta,
 				...(startMs === undefined ? {} : { startMs }),
@@ -88,13 +92,24 @@ export function reduceLiveTranscript(
 			turns
 		};
 	}
-	if (event.type === 'session.delegation.created') {
-		return { ...state, thinking: true };
-	}
+	if (
+		event.type === 'session.delegation.created' &&
+		isRecord(event.delegation) &&
+		typeof event.delegation.id === 'string' &&
+		event.delegation.id
+	)
+		return withDelegation(state, event.delegation.id, true);
 	const backend = readBackendEvent(event);
-	if (backend?.kind === 'started') return { ...state, thinking: true };
-	if (backend?.kind === 'finished') return { ...state, thinking: false };
+	if (backend?.kind === 'started') return withDelegation(state, backend.delegationId, true);
+	if (backend?.kind === 'finished') return withDelegation(state, backend.delegationId, false);
 	return state;
+}
+
+function withDelegation(state: LiveTranscriptState, id: string, active: boolean): LiveTranscriptState {
+	const activeDelegations = active
+		? [...new Set([...state.activeDelegations, id])]
+		: state.activeDelegations.filter((item) => item !== id);
+	return { ...state, activeDelegations, thinking: activeDelegations.length > 0 };
 }
 
 export interface LiveFunctionCall {
