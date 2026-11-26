@@ -236,11 +236,12 @@
 							type="button"
 							class="flex min-h-24 w-28 flex-col items-center justify-center gap-2 rounded-tile p-3 text-center text-sm font-medium transition-colors surface-glass hover:border-accent-ink/60 active:surface-selected disabled:cursor-not-allowed disabled:opacity-55"
 							aria-describedby="scenes-hint"
+							title={scene}
 							disabled={Boolean(shortcutBlockedReason)}
 							onclick={() => onshortcut(`Activate the scene "${scene}".`)}
 						>
 							<DomainIcon domain="scene" />
-							<span class="line-clamp-2">{scene}</span>
+							<span class="block w-full min-w-0 truncate">{scene}</span>
 						</button>
 					</li>
 				{/each}
