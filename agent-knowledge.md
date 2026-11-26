@@ -2,6 +2,35 @@
 
 This file is the persistent project knowledge base. Entries are append-only and ordered newest first. It complements `AGENTS.md` with decisions, discoveries, constraints, and context learned during implementation sessions.
 
+## 2026-11-26
+
+### 2026-11-26T21:41:00+01:00
+
+- **M3a card ordering decision:** the user chose to keep voice action cards at their event-arrival position instead of estimating their position from the delegation timestamp. Late transcript fragments can therefore appear after an action that they preceded in speech.
+- **M3a cross-tab recovery:** the user chose to defer the case where a second tab opens a conversation that still has an active voice call in the first tab. The second tab can incorrectly mark a pending card interrupted and subsequent concurrent writes can conflict; do not assume this case is safe or resolved.
+- **M3a crash persistence:** the user accepted best-effort saving as transcript fragments arrive; an immediate tab or browser crash can lose the latest fragment.
+- **M3a local speech activity:** the user chose local VAD for the idle timer. The Silero v5 model and ONNX WebAssembly runtime are bundled as same-origin assets and process the existing microphone stream without collecting utterances or sending audio to another service. Loading, initialization failure, and stalled processing disable the idle timeout visibly rather than risk ending while the user is speaking. Detection is probabilistic. On 2026-11-26 the user reported successful real-service tests of speech lasting over 60 seconds, the 60-second idle end, and a spoken follow-up referring to an earlier typed message.
+
+### 2026-11-26T21:21:06+01:00
+
+- **M3a delegation activity:** the Live transcript state tracks active backend delegations by provider delegation ID. Completing one no longer clears the thinking state or resumes the idle timer while another is still running. The user reports that the earlier history-load problem appears resolved in their browser; the particular stored record responsible was not inspected.
+
+### 2026-11-26T21:16:49+01:00
+
+- **M3a legacy action cards:** early saved voice cards lacked the later-added `label` field although the history version stayed the same. Loading those records now supplies a generic label in memory; listing does not rewrite storage, and malformed records still report an error. This is a reproduced possible cause of the user's history-load error, not confirmation of their browser's stored data.
+
+### 2026-11-26T20:46:16+01:00
+
+- **Idle activity:** GPT-Live's documentation says transcript delivery can be uneven and gaps do not establish silence. The idle timer now also tracks measured assistant output, without recreating a timer on each audio frame. Microphone audio is not a speech detector: background noise must not indefinitely extend the session, while user speech without transcript deltas remains an open gap. If the output meter cannot be created, the stage warns that the session may end during playback.
+- **Late voice turns:** the chat uses the current session's sorted transcript snapshots to reorder voice-message slots, preserving messages from earlier sessions and non-voice slots. This does not establish where an action card belongs relative to late speech. GPT-Live exposes an approximate `offset_ms` for delegation creation, but exact tool-call timing requires further investigation.
+- **Concurrent delegation limitation:** transcript state currently uses a single `thinking` flag. Completion of one backend response can clear it while another delegation is still running; independent tracking is needed before claiming idle behavior covers overlapping work.
+
+### 2026-11-26T20:34:00+01:00
+
+- **M3a confirmation lifetime:** a pending Live confirmation expires at the server-issued deadline without executing the action. Its result tells the model not to retry without asking; the idle period resumes once pending work ends. The server remains authoritative for approval.
+- **Saved voice calls:** selecting a saved conversation marks running or waiting voice cards interrupted, since a restored page cannot resume those calls. Listing sessions does not rewrite them. Selecting a conversation still active in another tab requires further cross-tab verification.
+- **M3a context and remaining limits:** Live context excludes action-card placeholders and is capped at 128 messages, 4,096 characters per message, and 8,192 characters total. A server test confirms typed follow-ups accept voice-card summaries without re-executing the action. Delayed transcript fragments and cards are not guaranteed to appear in spoken order; the idle timer currently tracks transcript events rather than reliable speech activity.
+
 ## 2026-11-25
 
 ### 2026-11-25T12:09:00+01:00
