@@ -65,7 +65,10 @@ describe('Live data-channel events', () => {
 			delegation_id: 'delegation_1',
 			event: { type }
 		});
-		const events = [{ type: 'session.delegation.created' }, response('response.output_text.delta')];
+		const events = [
+			{ type: 'session.delegation.created', delegation: { id: 'delegation_1' } },
+			response('response.output_text.delta')
+		];
 		expect(reduce(events).thinking).toBe(true);
 
 		events.push(response('response.completed'));
@@ -75,6 +78,23 @@ describe('Live data-channel events', () => {
 		expect(reduce(events).thinking).toBe(true);
 
 		events.push(response('response.failed'));
+		expect(reduce(events).thinking).toBe(false);
+	});
+
+	it('keeps thinking while another delegation is still running', () => {
+		const events: LiveServerEvent[] = [
+			{ type: 'session.delegation.created', delegation: { id: 'first' } },
+			{ type: 'session.delegation.created', delegation: { id: 'second' } },
+			{ type: 'response.event', delegation_id: 'first', event: { type: 'response.created' } },
+			{ type: 'response.event', delegation_id: 'second', event: { type: 'response.created' } },
+			{ type: 'response.event', delegation_id: 'first', event: { type: 'response.completed' } }
+		];
+		expect(reduce(events).thinking).toBe(true);
+		events.push({
+			type: 'response.event',
+			delegation_id: 'second',
+			event: { type: 'response.failed' }
+		});
 		expect(reduce(events).thinking).toBe(false);
 	});
 

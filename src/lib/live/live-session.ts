@@ -17,11 +17,13 @@ import {
 } from './protocol';
 import { LiveToolCoordinator, type LiveToolApproval, type LiveToolCard } from './tool-calls';
 import type { VoiceStageState } from '$lib/components/VoiceStage.svelte';
+import type { VoiceActivityMonitor } from './voice-activity';
 
 const STARTUP_TIMEOUT_MS = 15_000;
 const CLOSE_TIMEOUT_MS = 15_000;
 const HIDDEN_SESSION_TIMEOUT_MS = 60_000;
 const IDLE_SPEECH_TIMEOUT_MS = 60_000;
+const VOICE_MONITOR_STARTUP_TIMEOUT_MS = 15_000;
 const TOOL_TIMEOUT_MS = 60_000;
 const MICROPHONE_SOUND_LEVEL = 0.01;
 const MICROPHONE_QUIET_MS = 8_000;
@@ -34,6 +36,12 @@ const ORB_LEVEL_SMOOTHING = 0.25;
 const SPEAKING_HOLD_MS = 800;
 const DEBUG_INTERVAL_MS = 3_000;
 const TRANSCRIPT_NOT_SAVED = 'The voice transcript could not be added to chat history.';
+const OUTPUT_MONITOR_UNAVAILABLE =
+	'Assistant audio activity could not be monitored. The conversation may end while audio is playing.';
+const SPEECH_MONITOR_UNAVAILABLE =
+	'Local speech detection is unavailable. The inactivity timeout is disabled; use End to finish the conversation.';
+const SPEECH_MONITOR_LOADING =
+	'Loading local speech detection. The inactivity timeout starts when it is ready.';
 const MICROPHONE_QUIET =
 	'Little or no sound is arriving from your microphone. Check the input device and its level in your browser and system settings.';
 
@@ -51,6 +59,12 @@ export interface LiveRuntime {
 	getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
 	createPeerConnection: () => RTCPeerConnection;
 	createAudioContext: () => AudioContext;
+	createVoiceActivityMonitor: (
+		stream: MediaStream,
+		context: AudioContext,
+		onSpeech: () => void,
+		onFailure: () => void
+	) => Promise<VoiceActivityMonitor>;
 	fetcher: typeof fetch;
 	requestAnimationFrame: typeof requestAnimationFrame;
 	cancelAnimationFrame: typeof cancelAnimationFrame;
@@ -88,6 +102,10 @@ function browserRuntime(): LiveRuntime {
 		},
 		createPeerConnection: () => new RTCPeerConnection(),
 		createAudioContext: () => new AudioContext(),
+		createVoiceActivityMonitor: async (...args) => {
+			const { createVoiceActivityMonitor } = await import('./voice-activity');
+			return createVoiceActivityMonitor(...args);
+		},
 		// Window functions throw "Illegal invocation" when called as methods of another object.
 		fetcher: (input, init) => fetch(input, init),
 		requestAnimationFrame: (callback) => requestAnimationFrame(callback),
@@ -189,11 +207,15 @@ export class LiveSessionController {
 	#audioContext?: AudioContext;
 	#outputMeter?: LevelMeter;
 	#inputMeter?: LevelMeter;
+	#voiceMonitor?: VoiceActivityMonitor;
+	#voiceMonitorState: 'loading' | 'ready' | 'failed' = 'loading';
+	#voiceMonitorTimer?: ReturnType<typeof setTimeout>;
 	#meterFrame?: number;
 	#abort?: AbortController;
 	#closeTimer?: ReturnType<typeof setTimeout>;
 	#hiddenTimer?: ReturnType<typeof setTimeout>;
 	#idleTimer?: ReturnType<typeof setTimeout>;
+	#lastIdleActivity = 0;
 	#statsTimer?: ReturnType<typeof setInterval>;
 	#visibilityHandler?: () => void;
 	#resolveStarted?: () => void;
@@ -209,6 +231,7 @@ export class LiveSessionController {
 	#transcriptSaveFailed = false;
 	#microphoneOn = true;
 	#speaking = false;
+	#outputMonitorUnavailable = false;
 	/** Sound was measured on the microphone at least once in this session. */
 	#microphoneHeard = false;
 	#microphoneQuiet = false;
@@ -315,6 +338,7 @@ export class LiveSessionController {
 		this.#setState({ kind: 'connecting', microphoneOn: true });
 		this.#audio = audio;
 		this.#startMeter('input', stream);
+		void this.#startVoiceMonitor(stream, this.#audioContext, generation);
 		this.#abort = new AbortController();
 		const signal = AbortSignal.any([this.#abort.signal, AbortSignal.timeout(STARTUP_TIMEOUT_MS)]);
 
@@ -441,6 +465,48 @@ export class LiveSessionController {
 		track.enabled = !track.enabled;
 		this.#microphoneOn = track.enabled;
 		this.#publishConnected();
+	}
+
+	async #startVoiceMonitor(stream: MediaStream, context: AudioContext, generation: number) {
+		const fail = () => {
+			if (generation !== this.#generation) return;
+			this.#voiceMonitorState = 'failed';
+			this.#syncIdleTimer();
+			if (this.#connected) this.#publishConnected();
+		};
+		this.#voiceMonitorTimer = setTimeout(fail, VOICE_MONITOR_STARTUP_TIMEOUT_MS);
+		try {
+			const monitor = await this.#browser.createVoiceActivityMonitor(
+				stream,
+				context,
+				() => {
+					if (
+						generation === this.#generation &&
+						this.#connected &&
+						this.#microphoneOn &&
+						!this.#ending
+					) {
+						this.#touchIdleTimer();
+					}
+				},
+				fail
+			);
+			if (generation !== this.#generation || this.#voiceMonitorState === 'failed') {
+				await monitor.dispose();
+				return;
+			}
+			this.#voiceMonitor = monitor;
+			this.#voiceMonitorState = 'ready';
+			this.#syncIdleTimer();
+			if (this.#connected) this.#publishConnected();
+		} catch {
+			fail();
+		} finally {
+			if (generation === this.#generation && this.#voiceMonitorTimer) {
+				clearTimeout(this.#voiceMonitorTimer);
+				this.#voiceMonitorTimer = undefined;
+			}
+		}
 	}
 
 	/** Answers the confirmation that is currently shown on the stage. */
@@ -605,14 +671,24 @@ export class LiveSessionController {
 			spokenText: this.#transcript.spokenText,
 			activity: this.#tools?.activity,
 			confirmation: this.#tools?.confirmation,
-			notice: this.#notice ?? (this.#microphoneQuiet ? MICROPHONE_QUIET : undefined),
+			notice:
+				(this.#voiceMonitorState === 'failed'
+					? SPEECH_MONITOR_UNAVAILABLE
+					: this.#voiceMonitorState === 'loading'
+						? SPEECH_MONITOR_LOADING
+						: undefined) ??
+				this.#notice ??
+				(this.#outputMonitorUnavailable
+					? OUTPUT_MONITOR_UNAVAILABLE
+					: this.#microphoneQuiet
+						? MICROPHONE_QUIET
+						: undefined),
 			closing: this.#ending
 		});
 	}
 
 	#touchIdleTimer() {
-		if (this.#idleTimer) clearTimeout(this.#idleTimer);
-		this.#idleTimer = undefined;
+		this.#lastIdleActivity = Date.now();
 		this.#syncIdleTimer();
 	}
 
@@ -620,6 +696,7 @@ export class LiveSessionController {
 		if (
 			!this.#connected ||
 			this.#ending ||
+			this.#voiceMonitorState !== 'ready' ||
 			this.#browser.document.hidden ||
 			this.#transcript.thinking ||
 			this.#tools?.busy
@@ -629,10 +706,17 @@ export class LiveSessionController {
 			return;
 		}
 		if (this.#idleTimer) return;
+		this.#lastIdleActivity = Date.now();
+		this.#scheduleIdleTimer(IDLE_SPEECH_TIMEOUT_MS);
+	}
+
+	#scheduleIdleTimer(delay: number) {
 		this.#idleTimer = setTimeout(() => {
 			this.#idleTimer = undefined;
-			this.#autoEnd('idle');
-		}, IDLE_SPEECH_TIMEOUT_MS);
+			const remaining = IDLE_SPEECH_TIMEOUT_MS - (Date.now() - this.#lastIdleActivity);
+			if (remaining > 0) this.#scheduleIdleTimer(remaining);
+			else this.#autoEnd('idle');
+		}, delay);
 	}
 
 	#autoEnd(reason: 'idle' | 'hidden') {
@@ -768,7 +852,10 @@ export class LiveSessionController {
 			if (kind === 'input') this.#inputMeter ??= this.#createMeter(stream);
 			else this.#outputMeter ??= this.#createMeter(stream);
 		} catch {
-			// Levels drive only the Speaking state and the microphone hint; the conversation works without them.
+			if (kind === 'output') {
+				this.#outputMonitorUnavailable = true;
+				if (this.#connected) this.#publishConnected();
+			}
 			return;
 		}
 		this.#meterFrame ??= this.#browser.requestAnimationFrame(this.#measure);
@@ -780,6 +867,7 @@ export class LiveSessionController {
 		if (this.#outputMeter) {
 			if (outputLevel >= (this.#speaking ? SPEAKING_STAY_LEVEL : SPEAKING_START_LEVEL)) {
 				this.#outputSoundAt = time;
+				if (this.#connected && !this.#ending) this.#touchIdleTimer();
 			}
 			const speaking =
 				this.#outputSoundAt !== undefined && time - this.#outputSoundAt < SPEAKING_HOLD_MS;
@@ -856,6 +944,7 @@ export class LiveSessionController {
 		if (this.#closeTimer) clearTimeout(this.#closeTimer);
 		if (this.#hiddenTimer) clearTimeout(this.#hiddenTimer);
 		if (this.#idleTimer) clearTimeout(this.#idleTimer);
+		if (this.#voiceMonitorTimer) clearTimeout(this.#voiceMonitorTimer);
 		if (this.#statsTimer) clearInterval(this.#statsTimer);
 		if (this.#visibilityHandler) {
 			this.#browser.document.removeEventListener('visibilitychange', this.#visibilityHandler);
@@ -863,6 +952,11 @@ export class LiveSessionController {
 		if (this.#meterFrame !== undefined) this.#browser.cancelAnimationFrame(this.#meterFrame);
 		this.#outputMeter?.dispose();
 		this.#inputMeter?.dispose();
+		if (this.#voiceMonitor) {
+			void this.#voiceMonitor.dispose().catch(() => {
+				this.#browser.debug?.('Could not release local speech detection.');
+			});
+		}
 		if (this.#audioContext && this.#audioContext.state !== 'closed') {
 			const closeGeneration = this.#generation + 1;
 			void this.#audioContext.close().catch(() => {
@@ -893,18 +987,23 @@ export class LiveSessionController {
 		this.#audioContext = undefined;
 		this.#outputMeter = undefined;
 		this.#inputMeter = undefined;
+		this.#voiceMonitor = undefined;
+		this.#voiceMonitorState = 'loading';
+		this.#voiceMonitorTimer = undefined;
 		this.#meterFrame = undefined;
 		this.#statsTimer = undefined;
 		this.#microphoneHeard = false;
 		this.#microphoneQuiet = false;
 		this.#quietSince = undefined;
 		this.#outputSoundAt = undefined;
+		this.#outputMonitorUnavailable = false;
 		this.#inputPeak = 0;
 		this.#level = 0;
 		this.#abort = undefined;
 		this.#visibilityHandler = undefined;
 		this.#hiddenTimer = undefined;
 		this.#idleTimer = undefined;
+		this.#lastIdleActivity = 0;
 		this.#closeTimer = undefined;
 		this.#sessionId = undefined;
 		this.#notice = undefined;

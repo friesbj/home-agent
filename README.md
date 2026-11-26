@@ -51,7 +51,13 @@ The private test MVP may store API and MCP credentials in Browser Storage. Brows
 
 Text messages, voice transcripts, and voice tool results are stored unencrypted in this browser as separate conversations; history cannot be disabled. Clear it explicitly in Settings or reset all data. A new tab, browser restart, or reload starts a new conversation; use the Conversation selector to continue an earlier one. Returning from Settings keeps the current conversation. The old single-conversation history is deleted on transition; settings and credentials are unaffected. Do not enter credentials in chat. Switching conversations cancels the response and pending approvals, but an action already started may have an unknown outcome: check Home Assistant before retrying. Text-mode tool inputs, outputs, and approvals are not restored; voice action cards may include tool results.
 
-Voice captions disappear when the voice stage closes, but voice turns are kept in the current conversation. Audio is never stored. A voice session ends after 60 seconds in a hidden tab. Leaving voice while a device change is running or awaiting confirmation abandons it; the chat then notes that the outcome is unknown.
+Do not open a conversation in another tab while its voice session is active: a pending action may be shown as interrupted and concurrent history writes can conflict. Cross-tab recovery is not yet supported.
+
+Voice captions disappear when the voice stage closes, but voice turns are kept in the current conversation. Audio is never stored. A voice session ends after 60 seconds in a hidden tab. Leaving voice while a device change is running or awaiting confirmation abandons it; the chat then notes that the outcome is unknown. A confirmation that reaches its server-issued expiry is not executed.
+
+Voice transcripts are saved as they arrive, but an immediate browser or tab crash may lose the latest fragment. Action cards retain their arrival position, so a delayed transcript may appear after an action that followed it in speech.
+
+The idle timeout uses transcript events, measured assistant audio, and local speech detection on the existing microphone stream. Its speech model and WebAssembly runtime are served by this application; detection sends no audio to another service and does not save it. Detection is approximate and adds a model and runtime download on first use. While detection is loading, or if it fails, the idle timeout is disabled and the stage explains why; use End to finish. The hidden-tab and provider session limits still apply.
 
 Assistant messages display Markdown, including tables and code blocks; your own messages remain plain text. Raw HTML is shown as text, unsafe links are removed, and Markdown images are shown as alt text rather than loaded.
 

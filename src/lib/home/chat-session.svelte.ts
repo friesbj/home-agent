@@ -14,6 +14,7 @@ import {
 	clearChatHistory,
 	deleteLegacyHistory,
 	loadSessions,
+	restoreSession,
 	sessionKey,
 	textSnapshot,
 	liveContextInput as buildLiveContextInput,
@@ -99,10 +100,15 @@ class ChatSessionManager {
 	/** Adds or updates voice turns in the active chat; persistence is handled separately. */
 	appendVoiceTranscript(turns: LiveTranscriptTurn[]) {
 		const messages = [...this.chat.messages];
-		for (const turn of turns) {
-			if (!turn.text.trim()) continue;
-			const voiceTurnId =
-				turn.id ?? `${turn.role}-${turn.startMs ?? turn.endMs ?? crypto.randomUUID()}`;
+		const orderedTurns = turns
+			.filter((turn) => turn.text.trim())
+			.map((turn) => ({
+				...turn,
+				voiceTurnId: turn.id ?? `${turn.role}-${turn.startMs ?? turn.endMs ?? crypto.randomUUID()}`
+			}));
+		const turnOrder = new Map(orderedTurns.map((turn, index) => [turn.voiceTurnId, index]));
+		for (const turn of orderedTurns) {
+			const { voiceTurnId } = turn;
 			const existingIndex = messages.findIndex(
 				(message) =>
 					(message.metadata as { voiceTurnId?: string } | undefined)?.voiceTurnId === voiceTurnId
@@ -121,6 +127,23 @@ class ChatSessionManager {
 				});
 			}
 		}
+		// The controller publishes the current Live session's turns in timeline order.
+		const slots: number[] = [];
+		const ordered: { message: UIMessage; order: number }[] = [];
+		messages.forEach((message, index) => {
+			const metadata = message.metadata as { source?: string; voiceTurnId?: string } | undefined;
+			const order =
+				metadata?.source === 'voice' && metadata.voiceTurnId
+					? turnOrder.get(metadata.voiceTurnId)
+					: undefined;
+			if (order === undefined) return;
+			slots.push(index);
+			ordered.push({ message, order });
+		});
+		ordered.sort((left, right) => left.order - right.order);
+		slots.forEach((index, position) => {
+			messages[index] = ordered[position].message;
+		});
 		this.chat.messages = messages;
 	}
 
@@ -233,11 +256,12 @@ class ChatSessionManager {
 			await withHistoryLock(() => {
 				const current = loadSessions(localStorage).find((item) => item.id === session.id);
 				if (!current) throw new Error('Chat session no longer exists.');
+				const restored = restoreSession(current);
 				this.id = current.id;
 				this.createdAt = current.createdAt;
 				this.expected = localStorage.getItem(sessionKey(current.id));
-				this.interruptedTools = current.interruptedTools;
-				this.chat = createChat(current.messages);
+				this.interruptedTools = restored.interruptedTools;
+				this.chat = createChat(restored.messages);
 			});
 		} else {
 			this.id = newSessionId();

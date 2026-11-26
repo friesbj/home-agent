@@ -27,7 +27,8 @@ const sessionSchema = z.object({
 						actionCard: z.object({
 							id: z.string(),
 							kind: z.enum(['read', 'change']),
-							label: z.string(),
+							// Early M3a cards were saved before tool labels were recorded.
+							label: z.string().default('Home Assistant tool'),
 							summary: z.string(),
 							status: z.enum([
 								'running',
@@ -72,6 +73,29 @@ export function loadSessions(storage: HistoryStorage): ChatSession[] {
 		sessions.push(session);
 	}
 	return sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** A restored conversation cannot resume the Live calls owned by its original browser page. */
+export function restoreSession(session: ChatSession): ChatSession {
+	let interruptedTools = session.interruptedTools;
+	const messages = session.messages.map((message) => {
+		const metadata = message.metadata;
+		if (
+			metadata?.source !== 'action' ||
+			(metadata.actionCard.status !== 'running' &&
+				metadata.actionCard.status !== 'waiting-confirmation')
+		)
+			return message;
+		if (metadata.actionCard.kind === 'change') interruptedTools = true;
+		return {
+			...message,
+			metadata: {
+				...metadata,
+				actionCard: { ...metadata.actionCard, status: 'interrupted' as const }
+			}
+		};
+	});
+	return { ...session, messages, interruptedTools };
 }
 
 export function textSnapshot(messages: UIMessage[], interruptedTools: boolean) {
@@ -122,6 +146,7 @@ export function liveContextInput(messages: UIMessage[]) {
 	let characters = 0;
 	for (const message of [...snapshot].reverse()) {
 		if (result.length >= 128) break;
+		if (message.metadata?.source === 'action') continue;
 		const text = message.parts
 			.map((part) => part.text)
 			.join('\n')

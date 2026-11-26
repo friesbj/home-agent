@@ -82,6 +82,9 @@ async function fakeMicrophoneAndWebRtc(page: Page) {
 				return channel;
 			}
 			addTrack() {}
+			async getStats() {
+				return new Map();
+			}
 			async createOffer() {
 				return { type: 'offer', sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n' };
 			}
@@ -175,6 +178,31 @@ async function openStage(page: Page) {
 	return page.getByRole('dialog', { name: 'Live conversation' });
 }
 
+test('loads and runs local speech detection without an external audio service', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['microphone']);
+	const assetRequests: string[] = [];
+	page.on('request', (request) => {
+		if (/silero_vad|ort-wasm|vad\.worklet/.test(request.url())) assetRequests.push(request.url());
+	});
+	await setup(page);
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await expect.poll(() => assetRequests.some((url) => url.includes('silero_vad'))).toBe(true);
+	await expect.poll(() => assetRequests.some((url) => url.includes('.wasm'))).toBe(true);
+	await expect(stage.getByText(/Loading local speech detection/)).toHaveCount(0, {
+		timeout: 15_000
+	});
+	await page.waitForTimeout(6_000);
+	await expect(stage.getByText(/Local speech detection is unavailable/)).toHaveCount(0);
+	expect(assetRequests.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(
+		true
+	);
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+});
+
 test('voice runs a read and a confirmed change through the server and joins the chat', async ({
 	page,
 	context
@@ -210,7 +238,7 @@ test('voice runs a read and a confirmed change through the server and joins the 
 	await stage.getByRole('button', { name: 'Show captions' }).click();
 	await expect(caption).toBeVisible();
 
-	await emit(page, { type: 'session.delegation.created' });
+	await emit(page, { type: 'session.delegation.created', delegation: { id: 'delegation_1' } });
 	await expect(stage.getByRole('status')).toHaveText('Working on it…');
 	await functionCall(page, 'call_read', 'GetLiveContext', {});
 	await backend(page, { type: 'response.completed' });
@@ -258,6 +286,21 @@ test('voice runs a read and a confirmed change through the server and joins the 
 	await expect(chat.getByText('Show result').first()).toBeVisible();
 	await expect(chat.getByText(TURN_ON_SUMMARY, { exact: true })).toHaveCount(1);
 	await expect(page.getByText(INTERRUPTED)).toBeHidden();
+	await page.locator('#start-voice').click();
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	expect(sessionRequests[1].body.input).toEqual([
+		{ role: 'user', text: 'Turn on the kitchen light.' },
+		{ role: 'assistant', text: 'The kitchen light is on.' }
+	]);
+	await emit(page, {
+		type: 'session.input_transcript.delta',
+		start_ms: 1000,
+		end_ms: 2000,
+		delta: 'Is it still on?'
+	});
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	await expect(chat.getByText('Turn on the kitchen light.', { exact: true })).toBeVisible();
+	await expect(chat.getByText('Is it still on?', { exact: true })).toBeVisible();
 	const savedConversation = chat
 		.getByLabel('Conversation')
 		.locator('option', { hasText: 'Turn on the kitchen light.' });
@@ -334,6 +377,314 @@ test('first use explains voice, and leaving abandons a pending confirmation', as
 	expect(await toolOutput(page, 'call_change')).toBeUndefined();
 	expect(await page.evaluate(() => window.__live.microphone?.readyState)).toBe('ended');
 });
+
+test('orders late-arriving voice turns by session timeline and restores that order', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await emit(page, {
+		type: 'session.output_transcript.delta',
+		start_ms: 5000,
+		end_ms: 5500,
+		delta: 'Second turn.'
+	});
+	await emit(page, {
+		type: 'session.input_transcript.delta',
+		start_ms: 1000,
+		end_ms: 1500,
+		delta: 'First turn.'
+	});
+	await emit(page, {
+		type: 'session.output_transcript.delta',
+		start_ms: 8000,
+		end_ms: 8500,
+		delta: 'Third turn.'
+	});
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	const chat = page.getByRole('region', { name: 'Chat' });
+	const messages = chat.getByRole('article');
+	await expect(messages).toHaveCount(3);
+	await expect(messages.nth(0)).toContainText('First turn.');
+	await expect(messages.nth(1)).toContainText('Second turn.');
+	await expect(messages.nth(2)).toContainText('Third turn.');
+	const savedId = await chat
+		.getByLabel('Conversation')
+		.locator('option', { hasText: 'First turn.' })
+		.getAttribute('value');
+	if (!savedId) throw new Error('Voice conversation was not saved.');
+	await page.reload();
+	await page.getByLabel('Conversation').selectOption(savedId);
+	await expect(messages.nth(0)).toContainText('First turn.');
+	await expect(messages.nth(1)).toContainText('Second turn.');
+	await expect(messages.nth(2)).toContainText('Third turn.');
+});
+
+test('keeps an action card at its arrival position when an earlier transcript arrives late', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await functionCall(page, 'late_card', 'GetLiveContext', {});
+	await backend(page, { type: 'response.completed' });
+	await expect.poll(() => toolOutput(page, 'late_card')).toContain('Kitchen Light');
+	await emit(page, {
+		type: 'session.input_transcript.delta',
+		start_ms: 1000,
+		end_ms: 1500,
+		delta: 'Earlier speech received late.'
+	});
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	const chat = page.getByRole('region', { name: 'Chat' });
+	const messages = chat.getByRole('article');
+	await expect(messages).toHaveCount(2);
+	await expect(messages.nth(0)).toContainText('GetLiveContext');
+	await expect(messages.nth(1)).toContainText('Earlier speech received late.');
+	const id = await chat
+		.getByLabel('Conversation')
+		.locator('option', { hasText: 'Earlier speech received late.' })
+		.getAttribute('value');
+	if (!id) throw new Error('Voice conversation was not saved.');
+	await page.reload();
+	await page.getByLabel('Conversation').selectOption(id);
+	await expect(messages.nth(0)).toContainText('GetLiveContext');
+	await expect(messages.nth(1)).toContainText('Earlier speech received late.');
+});
+
+test('a new voice conversation works with older saved action cards', async ({ page, context }) => {
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	const key = 'home-agent.chat-session.v1.legacy-voice';
+	const legacy = JSON.stringify({
+		version: 1,
+		id: 'legacy-voice',
+		createdAt: '2026-11-25T10:00:00.000Z',
+		updatedAt: '2026-11-25T10:00:00.000Z',
+		messages: [
+			{ id: 'legacy-user', role: 'user', parts: [{ type: 'text', text: 'Previous question' }] },
+			{
+				id: 'legacy-card',
+				role: 'assistant',
+				metadata: {
+					source: 'action',
+					actionCardId: 'legacy-call',
+					actionCard: {
+						id: 'legacy-call',
+						kind: 'change',
+						summary: 'Turn on the light',
+						status: 'done',
+						output: 'Done'
+					}
+				},
+				parts: [{ type: 'text', text: 'Turn on the light' }]
+			}
+		],
+		interruptedTools: false
+	});
+	await page.evaluate(({ key, legacy }) => localStorage.setItem(key, legacy), { key, legacy });
+	await page.reload();
+	await expect(page.locator('#start-voice')).toBeVisible();
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await emit(page, {
+		type: 'session.input_transcript.delta',
+		start_ms: 1000,
+		end_ms: 1500,
+		delta: 'New voice question.'
+	});
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	const chat = page.getByRole('region', { name: 'Chat' });
+	await expect(chat.getByText('New voice question.', { exact: true })).toBeVisible();
+	await expect(chat.getByRole('alert')).toHaveCount(0);
+	await expect(chat.getByLabel('Conversation')).toContainText('Previous question');
+	await expect(chat.getByLabel('Conversation')).toContainText('New voice question.');
+	expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBe(legacy);
+	await chat.getByLabel('Conversation').selectOption('legacy-voice');
+	await expect(chat.getByText('Home Assistant tool', { exact: true })).toBeVisible();
+	await expect(chat.getByText('Turn on the light', { exact: true })).toBeVisible();
+});
+
+test('a pending voice action is interrupted when its conversation is restored after reload', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await emit(page, {
+		type: 'session.input_transcript.delta',
+		start_ms: 1000,
+		end_ms: 2000,
+		delta: 'Turn on the kitchen light.'
+	});
+	await functionCall(page, 'reload_change', 'HassTurnOn', {
+		name: 'Kitchen Light',
+		domain: ['light']
+	});
+	await expect(stage.getByRole('button', { name: 'Approve' })).toBeVisible();
+	await expect
+		.poll(async () =>
+			page.evaluate(() => {
+				for (const key of Object.keys(localStorage)) {
+					if (!key.startsWith('home-agent.chat-session.v1.')) continue;
+					const session = JSON.parse(localStorage.getItem(key)!);
+					if (
+						session.messages.some(
+							(message: { metadata?: { actionCard?: { status?: string } } }) =>
+								message.metadata?.actionCard?.status === 'waiting-confirmation'
+						)
+					)
+						return session.id as string;
+				}
+				return null;
+			})
+		)
+		.toBeTruthy();
+	const id = await page.evaluate(() => {
+		const key = Object.keys(localStorage).find((item) =>
+			item.startsWith('home-agent.chat-session.v1.')
+		);
+		if (!key) throw new Error('Voice conversation was not saved.');
+		return key.slice('home-agent.chat-session.v1.'.length);
+	});
+	await page.reload();
+	await page.getByLabel('Conversation').selectOption(id);
+	const chat = page.getByRole('region', { name: 'Chat' });
+	await expect(chat.getByText('Interrupted, outcome unknown')).toBeVisible();
+	await expect(chat.getByText(INTERRUPTED)).toBeVisible();
+	await expect(chat.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+	await expect(chat.getByRole('button', { name: 'Deny' })).toHaveCount(0);
+	await expect
+		.poll(() =>
+			page.evaluate(
+				(key) =>
+					JSON.parse(localStorage.getItem(key)!).messages.find(
+						(message: { metadata?: { actionCard?: { id?: string } } }) =>
+							message.metadata?.actionCard?.id === 'reload_change'
+					)?.metadata.actionCard.status,
+				`home-agent.chat-session.v1.${id}`
+			)
+		)
+		.toBe('interrupted');
+});
+
+test('shows failed and denied voice actions in chat without approval controls', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	await page.route('**/api/live/tool', (route) => {
+		const request = route.request().postDataJSON() as { callId: string };
+		const denied = request.callId === 'denied_action';
+		return route.fulfill({
+			json: {
+				status: 'completed',
+				outcome: denied ? 'denied' : 'failed',
+				output: denied ? 'Action not approved.' : 'Device unavailable.'
+			}
+		});
+	});
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await functionCall(page, 'denied_action', 'HassTurnOn', {
+		name: 'Kitchen Light',
+		domain: ['light']
+	});
+	await backend(page, { type: 'response.completed' });
+	await expect.poll(() => toolOutput(page, 'denied_action')).toBeTruthy();
+	await functionCall(page, 'failed_action', 'HassTurnOn', {
+		name: 'Kitchen Light',
+		domain: ['light']
+	});
+	await backend(page, { type: 'response.completed' });
+	await expect.poll(() => toolOutput(page, 'failed_action')).toBeTruthy();
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	const chat = page.getByRole('region', { name: 'Chat' });
+	await expect(chat.getByText('Not executed', { exact: true })).toBeVisible();
+	await expect(chat.getByText('Failed', { exact: true })).toBeVisible();
+	await expect(chat.getByText('Action not approved.')).toBeVisible();
+	await expect(chat.getByText('Device unavailable.')).toBeVisible();
+	await expect(chat.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+	await expect(chat.getByRole('button', { name: 'Deny' })).toHaveCount(0);
+});
+
+test('an expired voice confirmation cannot execute a change', async ({ page, context }) => {
+	await page.clock.install();
+	await context.grantPermissions(['microphone']);
+	await setup(page);
+	const stage = await openStage(page);
+	await expect(stage.getByRole('status')).toHaveText('Listening');
+	await functionCall(page, 'expire_change', 'HassTurnOn', {
+		name: 'Kitchen Light',
+		domain: ['light']
+	});
+	await backend(page, { type: 'response.completed' });
+	await expect(stage.getByRole('button', { name: 'Approve' })).toBeVisible();
+	await page.clock.fastForward(300_001);
+	await expect(stage.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+	await expect.poll(() => toolOutput(page, 'expire_change')).toContain('confirmation expired');
+	await stage.getByRole('button', { name: 'End', exact: true }).click();
+	const chat = page.getByRole('region', { name: 'Chat' });
+	await expect(chat.getByText('Not executed', { exact: true })).toBeVisible();
+	await expect(chat.getByText(/confirmation expired/i)).toBeVisible();
+});
+
+for (const scenario of [
+	{
+		reason: 'idle',
+		notice: 'The voice conversation ended after 60 seconds without speech.',
+		mobile: false
+	},
+	{
+		reason: 'hidden',
+		notice: 'The voice conversation ended because this tab was hidden for 60 seconds.',
+		mobile: true
+	},
+	{
+		reason: 'expired',
+		notice: 'The voice conversation reached its time limit.',
+		mobile: false
+	}
+] as const) {
+	test(`leaves voice with a notice after ${scenario.reason}`, async ({ page, context }) => {
+		if (scenario.mobile) await page.setViewportSize({ width: 390, height: 844 });
+		await page.clock.install();
+		await context.grantPermissions(['microphone']);
+		await setup(page);
+		const stage = await openStage(page);
+		await expect(stage.getByRole('status')).toHaveText('Listening');
+		if (scenario.reason === 'idle') {
+			await expect(stage.getByText(/Loading local speech detection/)).toHaveCount(0, {
+				timeout: 15_000
+			});
+			await expect(stage.getByText(/Local speech detection is unavailable/)).toHaveCount(0);
+			// The accelerated clock does not advance the browser's real audio worklet.
+			await stage.getByRole('button', { name: 'Turn microphone off' }).click();
+		}
+		if (scenario.reason === 'hidden') {
+			await page.evaluate(() => {
+				Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+				document.dispatchEvent(new Event('visibilitychange'));
+			});
+		}
+		if (scenario.reason === 'expired')
+			await emit(page, { type: 'session.closed', reason: 'expired' });
+		else await page.clock.fastForward(60_000);
+		await expect(stage).toBeHidden();
+		await expect(
+			page.getByRole('region', { name: 'Chat' }).getByText(scenario.notice)
+		).toBeVisible();
+		expect(await page.evaluate(() => window.__live.microphone?.readyState)).toBe('ended');
+	});
+}
 
 test('the stage fits a phone in landscape with the orb beside the controls', async ({ page }) => {
 	await setup(page);

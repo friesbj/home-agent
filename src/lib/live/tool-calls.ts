@@ -31,6 +31,7 @@ interface PendingCall {
 	target: string;
 	phase: 'running' | 'confirming' | 'approving' | 'denying';
 	confirmation?: PendingConfirmation;
+	expiryTimer?: ReturnType<typeof setTimeout>;
 }
 
 export interface LiveToolCard {
@@ -67,6 +68,8 @@ const PROGRESS: Record<PendingCall['phase'], string> = {
 };
 
 const DENIED = 'The user denied this change. Do not retry it.';
+const EXPIRED =
+	'The confirmation expired. Nothing was changed. Do not retry without asking the user.';
 const UNKNOWN_OUTCOME =
 	'The request failed and the outcome of this change is unknown. Do not retry it automatically; ask the user to check the device.';
 const UNAVAILABLE = 'The information is unavailable right now.';
@@ -139,6 +142,11 @@ export class LiveToolCoordinator {
 			this.#continue(event.delegationId, delegation);
 		} else {
 			// A failed response accepts no results; late results of its calls are dropped.
+			for (const pending of delegation.calls.values()) {
+				if (pending.expiryTimer) clearTimeout(pending.expiryTimer);
+				const card = this.#cards.get(pending.call.callId);
+				if (card) this.#cards.set(card.id, { ...card, status: 'interrupted' });
+			}
 			this.#delegations.delete(event.delegationId);
 		}
 		this.#host.onChange();
@@ -148,6 +156,12 @@ export class LiveToolCoordinator {
 	respond(approved: boolean) {
 		const pending = this.#confirming();
 		if (!pending?.confirmation) return;
+		if (pending.expiryTimer) clearTimeout(pending.expiryTimer);
+		pending.expiryTimer = undefined;
+		if (pending.confirmation.expiresAt <= Date.now()) {
+			this.#submit(pending, EXPIRED, 'denied');
+			return;
+		}
 		pending.phase = approved ? 'approving' : 'denying';
 		this.#host.onChange();
 		void this.#run(pending, { token: pending.confirmation.token, approved });
@@ -158,6 +172,7 @@ export class LiveToolCoordinator {
 		if (this.#abort.signal.aborted) return false;
 		const interrupted = this.#pending().some((pending) => pending.kind === 'change');
 		for (const pending of this.#pending()) {
+			if (pending.expiryTimer) clearTimeout(pending.expiryTimer);
 			const card = this.#cards.get(pending.call.callId);
 			if (card) this.#cards.set(card.id, { ...card, status: 'interrupted' });
 		}
@@ -255,6 +270,14 @@ export class LiveToolCoordinator {
 			pending.confirmation = result.confirmation;
 			const card = this.#cards.get(pending.call.callId);
 			if (card) this.#cards.set(card.id, { ...card, status: 'waiting-confirmation' });
+			pending.expiryTimer = setTimeout(
+				() => {
+					if (this.#isActive(pending) && pending.phase === 'confirming') {
+						this.#submit(pending, EXPIRED, 'denied');
+					}
+				},
+				Math.max(0, result.confirmation.expiresAt - Date.now())
+			);
 			this.#host.send({
 				type: 'session.commentary.append',
 				event_id: this.#eventId(),
@@ -266,6 +289,8 @@ export class LiveToolCoordinator {
 	}
 
 	#submit(pending: PendingCall, output: string, status: 'done' | 'denied' | 'failed') {
+		if (pending.expiryTimer) clearTimeout(pending.expiryTimer);
+		pending.expiryTimer = undefined;
 		const { delegationId, callId } = pending.call;
 		const card = this.#cards.get(callId);
 		if (card) this.#cards.set(callId, { ...card, status, output });

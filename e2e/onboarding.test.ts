@@ -44,3 +44,29 @@ test('declares the app icons and serves them', async ({ page, request }) => {
 	expect((await request.get(svg as string)).headers()['content-type']).toContain('image/svg+xml');
 	await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b142d');
 });
+
+test('filters and selects a natural voice using the keyboard', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 800 });
+	await page.goto('/onboarding');
+	await page.getByText('Advanced settings', { exact: true }).click();
+	const voices = page.getByRole('group', { name: 'Voice', exact: true });
+	await voices.getByLabel('Search').fill('ripple');
+	await expect(voices.getByRole('radio')).toHaveCount(1);
+	await voices.getByLabel('Language').selectOption('English');
+	await voices.getByLabel('Presentation').selectOption('Masculine');
+	const ripple = voices.getByRole('radio', { name: /Ripple/ });
+	await ripple.focus();
+	await page.keyboard.press('Space');
+	await expect(ripple).toBeChecked();
+	await voices.getByLabel('Presentation').selectOption('Feminine');
+	await expect(voices.getByText('No natural voices match these filters.')).toBeVisible();
+	await voices.getByLabel('Presentation').selectOption('Masculine');
+	await page.getByLabel(/Server address/).fill('https://mcp.example.com/mcp');
+	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
+	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
+	await page.getByRole('button', { name: 'Finish setup' }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await page.goto('/settings');
+	await page.getByText('Advanced settings', { exact: true }).click();
+	await expect(page.getByRole('radio', { name: /Ripple/ })).toBeChecked();
+});
