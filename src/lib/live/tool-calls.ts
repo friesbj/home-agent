@@ -33,6 +33,17 @@ interface PendingCall {
 	confirmation?: PendingConfirmation;
 }
 
+export interface LiveToolCard {
+	id: string;
+	kind: VoiceActivity['kind'];
+	/** Base tool name shown in mono, e.g. HassTurnOn, like the text-mode card. */
+	label: string;
+	/** Human-readable change summary; empty for reads, which show only the tool name. */
+	summary: string;
+	status: 'running' | 'waiting-confirmation' | 'done' | 'denied' | 'failed' | 'interrupted';
+	output?: string;
+}
+
 interface Delegation {
 	calls: Map<string, PendingCall>;
 	submitted: number;
@@ -77,6 +88,7 @@ export class LiveToolCoordinator {
 	#abort = new AbortController();
 	#delegations = new Map<string, Delegation>();
 	#eventCount = 0;
+	#cards = new Map<string, LiveToolCard>();
 
 	constructor(host: LiveToolHost) {
 		this.#host = host;
@@ -84,6 +96,10 @@ export class LiveToolCoordinator {
 
 	get busy(): boolean {
 		return this.#pending().length > 0;
+	}
+
+	get cards(): LiveToolCard[] {
+		return [...this.#cards.values()];
 	}
 
 	get activity(): VoiceActivity | undefined {
@@ -141,8 +157,13 @@ export class LiveToolCoordinator {
 	cancel(): boolean {
 		if (this.#abort.signal.aborted) return false;
 		const interrupted = this.#pending().some((pending) => pending.kind === 'change');
+		for (const pending of this.#pending()) {
+			const card = this.#cards.get(pending.call.callId);
+			if (card) this.#cards.set(card.id, { ...card, status: 'interrupted' });
+		}
 		this.#abort.abort();
 		this.#delegations.clear();
+		this.#host.onChange();
 		return interrupted;
 	}
 
@@ -183,6 +204,13 @@ export class LiveToolCoordinator {
 			target: evaluation.kind === 'mutation' ? evaluation.summary : (READ_TARGETS[base] ?? base),
 			phase: 'running'
 		};
+		this.#cards.set(call.callId, {
+			id: call.callId,
+			kind: pending.kind,
+			label: base,
+			summary: evaluation.kind === 'mutation' ? evaluation.summary : '',
+			status: 'running'
+		});
 		delegation.calls.set(call.callId, pending);
 		this.#host.onChange();
 		void this.#run(pending);
@@ -200,19 +228,33 @@ export class LiveToolCoordinator {
 					: pending.kind === 'change'
 						? UNKNOWN_OUTCOME
 						: UNAVAILABLE;
-			this.#submit(pending, output);
+			this.#submit(pending, output, approval?.approved === false ? 'denied' : 'failed');
 			return;
 		}
 		if (!this.#isActive(pending)) return;
 
 		if (result.status === 'completed') {
-			this.#submit(pending, result.output);
+			this.#submit(
+				pending,
+				result.output,
+				result.outcome === 'denied'
+					? 'denied'
+					: result.outcome === 'failed' || result.outcome === 'blocked'
+						? 'failed'
+						: 'done'
+			);
 		} else if (approval) {
 			// The server asked again instead of deciding; never loop on confirmations.
-			this.#submit(pending, 'The confirmation could not be verified. Nothing was changed.');
+			this.#submit(
+				pending,
+				'The confirmation could not be verified. Nothing was changed.',
+				'failed'
+			);
 		} else {
 			pending.phase = 'confirming';
 			pending.confirmation = result.confirmation;
+			const card = this.#cards.get(pending.call.callId);
+			if (card) this.#cards.set(card.id, { ...card, status: 'waiting-confirmation' });
 			this.#host.send({
 				type: 'session.commentary.append',
 				event_id: this.#eventId(),
@@ -223,8 +265,10 @@ export class LiveToolCoordinator {
 		}
 	}
 
-	#submit(pending: PendingCall, output: string) {
+	#submit(pending: PendingCall, output: string, status: 'done' | 'denied' | 'failed') {
 		const { delegationId, callId } = pending.call;
+		const card = this.#cards.get(callId);
+		if (card) this.#cards.set(callId, { ...card, status, output });
 		const delegation = this.#delegations.get(delegationId);
 		if (!delegation) return;
 		delegation.calls.delete(callId);

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		ArrowLeft,
 		Captions,
 		CaptionsOff,
 		Eye,
@@ -13,6 +12,7 @@
 	import { resolve } from '$app/paths';
 	import AssistantOrbCanvas from './AssistantOrbCanvas.svelte';
 	import type { OrbVisual } from '$lib/live/orb-visual';
+	import { VOICE_CATALOG } from '$lib/config/voices';
 
 	export type VoiceActivity = {
 		kind: 'read' | 'change';
@@ -28,7 +28,6 @@
 	};
 
 	export type VoiceStageState =
-		| { kind: 'ready' }
 		/** Permission was never granted (first use) or, when `blocked`, was refused for this site. */
 		| { kind: 'needs-microphone'; blocked?: boolean }
 		| { kind: 'connecting'; microphoneOn: boolean }
@@ -58,11 +57,10 @@
 		getLevel?: () => number;
 		/** Captions are off by default; bind this to keep the user's choice between conversations. */
 		captionsVisible?: boolean;
-		onstart?: () => void;
 		onpermission?: () => void;
 		ontogglemicrophone?: () => void;
 		onend?: () => void;
-		onbacktotext?: () => void;
+		onclose?: () => void;
 		onapprove?: () => void;
 		ondeny?: () => void;
 		onretry?: () => void;
@@ -73,11 +71,10 @@
 		voiceName,
 		getLevel,
 		captionsVisible = $bindable(false),
-		onstart,
 		onpermission,
 		ontogglemicrophone,
 		onend,
-		onbacktotext,
+		onclose,
 		onapprove,
 		ondeny,
 		onretry
@@ -87,6 +84,7 @@
 		(stageState.kind === 'connecting' && stageState.microphoneOn) ||
 			(stageState.kind === 'connected' && stageState.microphoneOn)
 	);
+	const selectedVoice = $derived(VOICE_CATALOG.find((voice) => voice.apiName === voiceName));
 
 	const presentation = $derived.by(() => {
 		if (stageState.kind === 'needs-microphone') {
@@ -188,10 +186,6 @@
 		}
 		return signals;
 	});
-
-	function backToText() {
-		onbacktotext?.();
-	}
 </script>
 
 <section
@@ -259,12 +253,19 @@
 			{#if !stageState.blocked}
 				<div class="space-y-1 rounded-tile bg-white/5 p-3 text-sm text-ink-muted">
 					<p>
-						While a conversation is open, your voice is sent through this application's server to
-						the model provider. Transcripts are not stored unless you turn that on in Settings.
+						While a conversation is open, your voice is sent to the model provider. Voice
+						transcripts are stored unencrypted in this browser's chat history.
 					</p>
 					{#if voiceName}
 						<p class="flex flex-wrap items-center gap-x-2">
-							<span>Voice: <span class="font-medium text-ink">{voiceName}</span></span>
+							<span>
+								Voice:
+								<span class="font-medium text-ink">
+									{selectedVoice?.name ?? voiceName}{selectedVoice?.character
+										? ` · ${selectedVoice.character}`
+										: ''}
+								</span>
+							</span>
 							<a
 								class="inline-flex min-h-11 items-center font-medium text-accent-ink underline"
 								href={resolve('/settings')}>Change in Settings</a
@@ -356,19 +357,10 @@
 		{/if}
 
 		<div class="grid grid-cols-2 gap-3">
-			{#if stageState.kind === 'ready'}
+			{#if stageState.kind === 'needs-microphone'}
 				<button
 					type="button"
-					class="col-span-2 btn min-h-12 btn-primary"
-					disabled={!onstart}
-					onclick={onstart}
-				>
-					Start conversation
-				</button>
-			{:else if stageState.kind === 'needs-microphone'}
-				<button
-					type="button"
-					class="col-span-2 btn min-h-12 btn-primary"
+					class="btn min-h-12 btn-primary"
 					disabled={!onpermission}
 					onclick={onpermission}
 				>
@@ -377,7 +369,7 @@
 			{:else if stageState.kind === 'error'}
 				<button
 					type="button"
-					class="col-span-2 btn min-h-12 btn-primary"
+					class="btn min-h-12 btn-primary"
 					disabled={!onretry}
 					onclick={onretry}
 				>
@@ -408,15 +400,18 @@
 				</button>
 			{/if}
 		</div>
-
-		<button
-			type="button"
-			class="mx-auto flex min-h-11 items-center gap-2 px-3 text-sm text-ink-muted hover:text-ink"
-			disabled={!onbacktotext}
-			onclick={backToText}
-		>
-			<ArrowLeft size={16} aria-hidden="true" /> Back to text
-		</button>
+		{#if stageState.kind === 'needs-microphone' || stageState.kind === 'error'}
+			<div class="flex justify-center">
+				<button
+					type="button"
+					class="btn min-h-12 btn-secondary"
+					disabled={!onclose}
+					onclick={onclose}
+				>
+					Close
+				</button>
+			</div>
+		{/if}
 	</div>
 </section>
 

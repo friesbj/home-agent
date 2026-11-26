@@ -4,6 +4,33 @@ This file is the persistent project knowledge base. Entries are append-only and 
 
 ## 2026-11-25
 
+### 2026-11-25T12:09:00+01:00
+
+- **Chat history is always enabled (user decision):** the old history and transcript-retention preferences are ignored when settings are loaded. Text, voice transcripts, and voice tool results are kept unencrypted in browser storage, with explicit deletion in Settings. Web Locks and available storage are still required; failures are reported rather than silently treated as saved.
+- **Stored voice migration:** an unsupported legacy voice falls back to Gleam without discarding other settings. The normal settings and Live request schemas still reject unsupported choices.
+- **Live context limits:** each seeded message is capped at 4,096 characters, with at most 8,192 characters and 128 messages in total. Voice transcript turn IDs are scoped to a Live session.
+
+### 2026-11-25T11:00:00+01:00
+
+- **M3a action cards:** Live tool calls now publish `LiveToolCard` snapshots with kind, summary, status, and optional output. Chat history stores action metadata and ChatPanel renders it without Approve/Deny controls. Pending cards remain voice-stage confirmations; cancel/end marks running changes interrupted with unknown outcome.
+- **M3a natural voice catalog:** only the 24 voices documented as Natural are selectable. Gleam is default; settings and Live session validation accept catalog IDs only. Character lines are limited to the seven confirmed in the user's screenshot. Search/filter and radio selection are in Settings.
+
+### 2026-11-25T09:46:00+01:00
+
+- **M3a live chat updates:** Live transcript delta events publish growing user/assistant turns immediately. Each turn has a stable ID based on role and timeline position, and `ChatSessionManager` upserts one UI message rather than appending fragments or duplicate turns. The voice marker (`source: 'voice'`, `voiceTurnId`) is stored in text snapshots and the versioned chat-session schema.
+- **M3a context seeding:** `session.input` carries only the newest text messages (128 maximum, 8192 characters maximum). The browser sends typed `{ role, text }` context; the trusted server validates it and maps user text to `input_text` and assistant text to `output_text` provider items. Tool parts and secrets never enter context.
+
+### 2026-11-25T09:24:00+01:00
+
+- **M3a leave behavior:** the Ready state and Back-to-text control are removed. End, Escape, and Close leave immediately to the text view. `LiveSessionController.leave()` synchronously disables and stops the microphone tracks and detaches the stream. `end()` owns asynchronous provider shutdown, so the UI is not blocked by `session.closed` or the close timeout.
+- **Tested behavior:** Live controller unit tests, VoiceStage component tests, and all 3 voice e2e tests pass with the immediate leave path.
+
+### 2026-11-25T09:14:00+01:00
+
+- **M3a implementation started on `feat/m3a-voice-first`:** the first vertical slice makes voice transcripts standard. `history.retainTranscripts` is removed from the settings schema and UI; Zod parsing ignores a stored legacy value. `ChatSessionManager.appendVoiceTranscript` now depends only on `history.enabled`, so every voice turn is appended to the active chat while chat history is on.
+- **User-facing rule:** the VoiceStage setup copy says that voice conversations are kept in chat history while it is enabled. When history is off, voice turns are not appended or persisted. Captions and audio remain transient.
+- **Validation:** settings and live unit tests, Settings and Voice component tests, and all voice e2e tests pass.
+
 ### 2026-11-25T08:55:00+01:00
 
 - **M3 is complete (canvas orb implemented):** the only remaining M3 build item, the canvas orb, is done; spoken approval stays deliberately deferred. The orb's moving layer is now canvas, driven only by the real audio level and the session state.

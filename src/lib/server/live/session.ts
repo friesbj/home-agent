@@ -66,7 +66,8 @@ async function readRejection(response: Response): Promise<ProviderRejection | un
 }
 
 export async function provisionLiveSession(
-	options: LiveSessionRequest & {
+	options: Omit<LiveSessionRequest, 'input'> & {
+		input?: { role: 'user' | 'assistant'; text: string }[];
 		apiKey: string;
 		signal?: AbortSignal;
 		timeoutMs: number;
@@ -94,6 +95,15 @@ export async function provisionLiveSession(
 				session: {
 					model: LIVE_MODEL,
 					instructions: LIVE_INSTRUCTIONS,
+					input: (options.input ?? []).map((message) => ({
+						type: 'message',
+						role: message.role,
+						content: [
+							message.role === 'user'
+								? { type: 'input_text', text: message.text }
+								: { type: 'output_text', text: message.text }
+						]
+					})),
 					audio: { output: { voice: options.voice } },
 					delegation: {
 						type: 'responses',

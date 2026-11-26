@@ -272,7 +272,7 @@ The user supplied an external UX workspace with a clickable voice simulation and
 
 - **Entry points:** the navigation orb (which shows a microphone once voice works), the voice offer in the Home entry card, and a Text/Voice switch in the Assistant header. All of them open the same stage.
   - As built: the navigation orb ("Start voice mode"), Talk in the Home entry card, and the Voice button in the Assistant header. Voice is unavailable while a text response is running or a text confirmation is pending, because voice turns join that conversation; the orb and Talk then open the conversation instead.
-- **First use:** if the microphone permission is not granted, or no OpenAI key is available, the stage opens on a single setup screen instead of connecting. It states in two sentences what happens (audio goes to the model provider through this application's server, only while the stage is open, and transcripts are not stored unless the user enabled it), shows the current voice with a link to Advanced settings, and offers one primary button, "Allow microphone". The browser prompt is triggered by that button, as browsers require. Once permission exists, tapping the orb connects immediately.
+- **First use:** if the microphone permission is not granted, or no OpenAI key is available, the stage opens on a single setup screen instead of connecting. It explains that audio goes to the model provider and transcripts are stored unencrypted in this browser's chat history, shows the current voice with a link to Advanced settings, and offers one primary button, "Allow microphone". The browser prompt is triggered by that button, as browsers require. Once permission exists, tapping the orb connects immediately.
   - As built: the stage asks the browser for the microphone permission when it opens. Granted connects at once from every entry point; not yet decided shows the setup screen; a browser that cannot report the permission is treated as not yet decided. Whether a key exists is known only to the server, so a missing key shows as "Could not connect" with the server's message instead of the setup screen.
 - **Permission denied:** the stage shows "Microphone blocked", a short note on how to allow it in the browser, "Try again" for after the permission was changed, and "Back to text". Text chat stays fully usable. A dismissed prompt is not a refusal and returns to the setup screen.
 - **End:** stops the session and releases the microphone, and the stage stays open in the Ready state so that one tap starts again.
@@ -353,8 +353,7 @@ The assistant announces that a confirmation is waiting. The decision is made wit
 ### Captions and Transcripts
 
 - Captions show the latest turn of each speaker. They are off until the user turns them on, and the choice lasts while the page is open. They are the text equivalent of the conversation, so the control that shows them is always present during a conversation. The provider sends transcript fragments with timestamps but without turn boundaries; fragments of one speaker that overlap or follow within 1.5 seconds form one turn.
-- Nothing is stored unless the user enabled transcript retention in Settings. Audio is never stored.
-- When transcript retention is on, voice turns are added as text messages to the current chat session when the voice session ends, so they appear in the Assistant and are removed by the existing "Clear chat history". When it is off, or text history is off, captions vanish with the stage.
+- Voice turns join the current chat as text while the conversation progresses and are stored unencrypted in browser history. History can be cleared in Settings, but cannot be disabled. Audio is never stored.
 
 ### Accessibility
 
@@ -449,7 +448,7 @@ These questions were open in the plan and were decided during M2a implementation
 - **Long words and large text:** the shell sets `overflow-wrap: anywhere` and fieldsets may shrink, so long names, addresses, and words wrap instead of forcing horizontal scrolling. Rows of buttons and the chat header wrap when text is enlarged.
 - **Form fields:** every `field` is at least 44 px high. In the composer, the textarea fills the whole 52 px field, so the entire field is the touch target, and the field draws the same 3 px focus ring as every other control.
 - **Touch-target exception:** the composer's Send and Stop buttons stay at 40 px by the user's request. They sit inside a 52 px field with 6 px of space around them and exceed the WCAG 2.2 AA minimum of 24 px.
-- **M3 transcript retention (user decision):** when enabled, voice turns join the active text-chat session; when disabled, they are transient and disappear with the voice stage.
+- **M3 transcript retention (superseded by M3a):** voice turns previously required a separate retention setting.
 - **M3 background sessions (user decision):** end a running voice session after 60 seconds with the tab hidden.
 - **M3 captions (user decision, 2026-11-25):** captions are hidden by default and have no prominent heading; the stage is about speaking, and a user who wants the text turns it on.
 - **M3a voice first (user decisions, 2026-11-25; planned):** see [M3a: Voice First](#m3a-voice-first). When implemented, it replaces the transcript-retention decision above (the transcript always joins the chat) and the rule that End leaves the stage open in the Ready state.

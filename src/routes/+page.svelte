@@ -17,20 +17,34 @@
 	let assistantView = $state<HTMLElement>();
 	let voiceOverlay = $state<HTMLElement>();
 	let liveAudio = $state<HTMLAudioElement>();
-	let voiceState = $state<VoiceStageState>({ kind: 'ready' });
+	let voiceState = $state<VoiceStageState>({ kind: 'needs-microphone' });
 	// The choice lasts while this page is open; every visit starts without captions.
 	let captionsVisible = $state(false);
 	let voiceOpenerId = 'start-voice';
 	const liveSession = new LiveSessionController({
-		onState: (state) => (voiceState = state),
+		onState: (state) => {
+			voiceState = state;
+			if (assistantMode === 'text' && state.kind === 'error') manager.error = state.message;
+		},
+		onAutoEnd: (reason) => {
+			manager.notice =
+				reason === 'idle'
+					? 'The voice conversation ended after 60 seconds without speech.'
+					: reason === 'hidden'
+						? 'The voice conversation ended because this tab was hidden for 60 seconds.'
+						: 'The voice conversation reached its time limit.';
+			void showTextAssistant();
+		},
 		getConfiguration: () => ({
 			apiKey: appConfig.getSecret('openaiApiKey'),
 			backendModel: appConfig.settings.models.backendModel,
 			voice: appConfig.settings.models.voice,
+			input: manager.liveContextInput(),
 			mcp: savedMcpTarget(),
 			confirmation: appConfig.confirmation
 		}),
 		onTranscript: (turns) => manager.appendVoiceTranscript(turns),
+		onToolCards: (cards) => manager.appendLiveToolCards(cards),
 		// Same notice as an interrupted text response: the outcome of the change is unknown.
 		onInterrupted: () => (manager.interruptedTools = true)
 	});
@@ -70,10 +84,11 @@
 			return;
 		}
 		voiceOpenerId = openerId;
+		manager.notice = '';
 		assistantMode = 'voice';
 		openMobileView('assistant');
 		await tick();
-		if (await liveSession.prepare()) startLiveConversation();
+		if ((await liveSession.prepare()) && assistantMode === 'voice') startLiveConversation();
 		await tick();
 		voiceOverlay
 			?.querySelector<HTMLButtonElement>('.btn-primary:not([disabled]), .btn:not([disabled])')
@@ -81,9 +96,10 @@
 	}
 
 	async function showTextAssistant() {
-		const wasConnected = voiceState.kind === 'connected';
-		await liveSession.end();
-		if (wasConnected && voiceState.kind === 'error') manager.notice = voiceState.message;
+		liveSession.leave();
+		void liveSession.end();
+		// Leaving voice is immediate: closing the provider session is allowed to finish
+		// in the background, and must not keep the microphone or stage open.
 		assistantMode = 'text';
 		openMobileView('assistant');
 		await tick();
@@ -216,13 +232,12 @@
 				voiceName={appConfig.settings.models.voice}
 				getLevel={() => liveSession.audioLevel}
 				bind:captionsVisible
-				onstart={startLiveConversation}
 				onpermission={startLiveConversation}
 				ontogglemicrophone={() => liveSession.toggleMicrophone()}
 				onapprove={() => liveSession.respondToConfirmation(true)}
 				ondeny={() => liveSession.respondToConfirmation(false)}
-				onend={() => void liveSession.end()}
-				onbacktotext={() => void showTextAssistant()}
+				onend={() => void showTextAssistant()}
+				onclose={() => void showTextAssistant()}
 				onretry={startLiveConversation}
 			/>
 		</div>

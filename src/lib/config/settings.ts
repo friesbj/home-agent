@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { secretStatus, type SecretStatus } from '$lib/security/redact';
+import { DEFAULT_VOICE_ENTRY, VOICE_API_NAMES, VOICE_CATALOG } from './voices';
 
 export const STORAGE_PREFIX = 'home-agent.';
 
@@ -12,20 +13,9 @@ export const STORAGE_KEYS = {
 export const LIVE_MODEL = 'gpt-live-1.1';
 export const DEFAULT_TEXT_MODEL = 'gpt-6-astra';
 export const DEFAULT_BACKEND_MODEL = 'gpt-6-astra';
-export const DEFAULT_VOICE = 'marin';
-
-export const VOICE_SUGGESTIONS = [
-	'alloy',
-	'ash',
-	'ballad',
-	'cedar',
-	'coral',
-	'echo',
-	'marin',
-	'sage',
-	'shimmer',
-	'verse'
-] as const;
+export const DEFAULT_VOICE = DEFAULT_VOICE_ENTRY.apiName;
+export const VOICE_SUGGESTIONS = VOICE_API_NAMES;
+export { VOICE_CATALOG };
 
 export const MODEL_SUGGESTIONS = ['gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol'] as const;
 
@@ -68,11 +58,7 @@ export const settingsSchema = z.object({
 	models: z
 		.object({
 			liveModel: z.literal(LIVE_MODEL).default(LIVE_MODEL),
-			voice: z
-				.string()
-				.trim()
-				.regex(/^[a-z0-9_-]{1,32}$/i, 'Use a voice name such as marin.')
-				.default(DEFAULT_VOICE),
+			voice: z.enum(VOICE_API_NAMES).default(DEFAULT_VOICE),
 			backendModel: modelId.default(DEFAULT_BACKEND_MODEL),
 			textModel: modelId.default(DEFAULT_TEXT_MODEL)
 		})
@@ -81,12 +67,6 @@ export const settingsSchema = z.object({
 		.object({
 			areas: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
 			domains: domainList.default([])
-		})
-		.prefault({}),
-	history: z
-		.object({
-			enabled: z.boolean().default(true),
-			retainTranscripts: z.boolean().default(false)
 		})
 		.prefault({})
 });
@@ -152,7 +132,15 @@ function writeVersioned<T>(storage: StorageLike, key: string, schema: z.ZodType<
 }
 
 export function loadSettings(storage: StorageLike): Settings {
-	return readVersioned(storage, STORAGE_KEYS.settings, settingsSchema);
+	const storedSettingsSchema = settingsSchema.extend({
+		models: settingsSchema.shape.models
+			.unwrap()
+			.extend({
+				voice: z.enum(VOICE_API_NAMES).default(DEFAULT_VOICE).catch(DEFAULT_VOICE)
+			})
+			.prefault({})
+	});
+	return readVersioned(storage, STORAGE_KEYS.settings, storedSettingsSchema);
 }
 
 export function saveSettings(storage: StorageLike, settings: Settings) {

@@ -21,7 +21,7 @@
 		LIVE_MODEL,
 		MODEL_SUGGESTIONS,
 		SECRET_LABELS,
-		VOICE_SUGGESTIONS,
+		VOICE_CATALOG,
 		confirmationPolicySchema,
 		settingsSchema,
 		type SecretName,
@@ -66,6 +66,22 @@
 	let testing = $state(false);
 	let testResult = $state<{ ok: boolean; message: string } | null>(null);
 	let advancedOpen = $state(false);
+	let voiceSearch = $state('');
+	let voiceLanguage = $state('All');
+	let voicePresentation = $state('All');
+	const filteredVoices = $derived(
+		VOICE_CATALOG.filter((voice) => {
+			const query = voiceSearch.trim().toLowerCase();
+			return (
+				(!query ||
+					voice.name.toLowerCase().includes(query) ||
+					voice.apiName.includes(query) ||
+					voice.character?.toLowerCase().includes(query)) &&
+				(voiceLanguage === 'All' || voice.language === voiceLanguage) &&
+				(voicePresentation === 'All' || voice.presentation === voicePresentation)
+			);
+		})
+	);
 
 	/** Fields shown outside Advanced settings; errors elsewhere open that section. */
 	const ESSENTIAL_FIELDS = new Set(['mcp-url', 'mcp-token', 'openai-key']);
@@ -255,7 +271,7 @@
 			type="password"
 			autocomplete="off"
 			spellcheck="false"
-			class="mt-1 w-full field"
+			class="mt-1 field w-full"
 			bind:value={secretInputs[name]}
 			aria-invalid={errors[id] ? 'true' : undefined}
 			aria-describedby="{id}-status {errors[id] ? `${id}-error` : ''}"
@@ -277,7 +293,7 @@
 				required
 				inputmode="url"
 				placeholder="https://homeassistant.local:8123/api/mcp"
-				class="mt-1 w-full field"
+				class="mt-1 field w-full"
 				bind:value={draft.mcp.url}
 				aria-invalid={errors['mcp-url'] ? 'true' : undefined}
 				aria-describedby="mcp-url-hint {errors['mcp-url'] ? 'mcp-url-error' : ''}"
@@ -355,7 +371,7 @@
 						type="text"
 						autocomplete="given-name"
 						maxlength="40"
-						class="mt-1 w-full field"
+						class="mt-1 field w-full"
 						bind:value={draft.profile.displayName}
 						aria-invalid={errors['display-name'] ? 'true' : undefined}
 						aria-describedby="display-name-hint {errors['display-name']
@@ -421,18 +437,70 @@
 					Live conversation model: <span class="font-mono">{LIVE_MODEL}</span>
 				</p>
 				<div class="grid gap-4 sm:grid-cols-3">
-					<div>
-						<label for="voice" class="block text-sm font-medium text-ink">Voice</label>
-						<input
-							id="voice"
-							list="voice-options"
-							class="mt-1 w-full field"
-							bind:value={draft.models.voice}
-							aria-invalid={errors['voice'] ? 'true' : undefined}
-							aria-describedby={errors['voice'] ? 'voice-error' : undefined}
-						/>
+					<fieldset class="space-y-3 sm:col-span-3">
+						<legend class="block text-sm font-medium text-ink">Voice</legend>
+						<div class="grid gap-3 sm:grid-cols-3">
+							<label class="block text-sm">
+								<span class="text-ink-muted">Search</span>
+								<input
+									class="mt-1 field w-full"
+									bind:value={voiceSearch}
+									placeholder="Name or character"
+								/>
+							</label>
+							<label class="block text-sm">
+								<span class="text-ink-muted">Language</span>
+								<select class="mt-1 field w-full" bind:value={voiceLanguage}>
+									<option>All</option>
+									<option>English</option>
+									<option>Portuguese</option>
+									<option>Spanish</option>
+									<option>German</option>
+									<option>French</option>
+									<option>Hindi</option>
+									<option>Japanese</option>
+									<option>Korean</option>
+								</select>
+							</label>
+							<label class="block text-sm">
+								<span class="text-ink-muted">Presentation</span>
+								<select class="mt-1 field w-full" bind:value={voicePresentation}>
+									<option>All</option>
+									<option>Feminine</option>
+									<option>Masculine</option>
+								</select>
+							</label>
+						</div>
+						<div class="max-h-64 space-y-2 overflow-y-auto rounded-tile border border-line p-2">
+							{#each filteredVoices as voice (voice.apiName)}
+								<label
+									class="flex min-h-11 cursor-pointer items-start gap-3 rounded-control px-3 py-2 hover:bg-white/5"
+								>
+									<input
+										type="radio"
+										name="live-voice"
+										value={voice.apiName}
+										bind:group={draft.models.voice}
+										class="mt-1"
+									/>
+									<span class="min-w-0">
+										<span class="block font-medium">{voice.name}</span>
+										{#if voice.character}<span class="block text-sm text-accent-ink"
+												>{voice.character}</span
+											>{/if}
+										<span class="block text-xs text-ink-muted">
+											{voice.language}{voice.regionalInfluence
+												? ` · ${voice.regionalInfluence}`
+												: ''} · {voice.presentation}
+										</span>
+									</span>
+								</label>
+							{:else}
+								<p class="p-3 text-sm text-ink-muted">No natural voices match these filters.</p>
+							{/each}
+						</div>
 						{@render fieldError('voice')}
-					</div>
+					</fieldset>
 					<div>
 						<label for="backend-model" class="block text-sm font-medium text-ink">
 							Backend reasoning model
@@ -440,7 +508,7 @@
 						<input
 							id="backend-model"
 							list="model-options"
-							class="mt-1 w-full field"
+							class="mt-1 field w-full"
 							bind:value={draft.models.backendModel}
 							aria-invalid={errors['backend-model'] ? 'true' : undefined}
 							aria-describedby={errors['backend-model'] ? 'backend-model-error' : undefined}
@@ -454,7 +522,7 @@
 						<input
 							id="text-model"
 							list="model-options"
-							class="mt-1 w-full field"
+							class="mt-1 field w-full"
 							bind:value={draft.models.textModel}
 							aria-invalid={errors['text-model'] ? 'true' : undefined}
 							aria-describedby={errors['text-model'] ? 'text-model-error' : undefined}
@@ -462,9 +530,6 @@
 						{@render fieldError('text-model')}
 					</div>
 				</div>
-				<datalist id="voice-options">
-					{#each VOICE_SUGGESTIONS as voice (voice)}<option value={voice}></option>{/each}
-				</datalist>
 				<datalist id="model-options">
 					{#each MODEL_SUGGESTIONS as model (model)}<option value={model}></option>{/each}
 				</datalist>
@@ -480,7 +545,7 @@
 						id="areas"
 						type="text"
 						placeholder="Living room, Kitchen"
-						class="mt-1 w-full field"
+						class="mt-1 field w-full"
 						bind:value={areasText}
 						aria-invalid={errors['areas'] ? 'true' : undefined}
 						aria-describedby={errors['areas'] ? 'areas-error' : undefined}
@@ -504,22 +569,10 @@
 						</label>
 					{/each}
 				</div>
-				<label class="flex min-h-11 items-center gap-3 text-sm">
-					<input type="checkbox" bind:checked={draft.history.enabled} />
-					Keep text chat history in this browser
-				</label>
 				<p class="text-sm text-ink-muted">
-					Text messages are stored unencrypted. Turning history off keeps existing messages until
-					you delete them in Settings. Tool activity is not restored.
+					Text messages, voice transcripts, and voice tool results are stored unencrypted in this
+					browser. You can delete chat history in Settings.
 				</p>
-				<label class="flex min-h-11 items-center gap-3 text-sm">
-					<input
-						type="checkbox"
-						bind:checked={draft.history.retainTranscripts}
-						disabled={!draft.history.enabled}
-					/>
-					Also add voice conversations to the chat as text
-				</label>
 			</fieldset>
 
 			<fieldset class="form-group space-y-4">
@@ -527,7 +580,7 @@
 				<div class="grid gap-4 sm:grid-cols-2">
 					<div>
 						<label for="mcp-transport" class="block text-sm font-medium text-ink">Transport</label>
-						<select id="mcp-transport" class="mt-1 w-full field" bind:value={draft.mcp.transport}>
+						<select id="mcp-transport" class="mt-1 field w-full" bind:value={draft.mcp.transport}>
 							<option value="streamable-http">Streamable HTTP</option>
 							<option value="sse">Server-sent events (legacy)</option>
 						</select>
@@ -540,14 +593,14 @@
 							id="mcp-name"
 							type="text"
 							maxlength="80"
-							class="mt-1 w-full field"
+							class="mt-1 field w-full"
 							bind:value={draft.mcp.displayName}
 						/>
 					</div>
 				</div>
 				<div>
 					<label for="mcp-auth" class="block text-sm font-medium text-ink">Authentication</label>
-					<select id="mcp-auth" class="mt-1 w-full field" bind:value={draft.mcp.authType}>
+					<select id="mcp-auth" class="mt-1 field w-full" bind:value={draft.mcp.authType}>
 						<option value="none">None</option>
 						<option value="bearer">Bearer token</option>
 					</select>
@@ -564,7 +617,7 @@
 						type="url"
 						inputmode="url"
 						placeholder="https://homeassistant.example.com"
-						class="mt-1 w-full field"
+						class="mt-1 field w-full"
 						bind:value={draft.homeAssistant.baseUrl}
 						aria-invalid={errors['ha-url'] ? 'true' : undefined}
 						aria-describedby={errors['ha-url'] ? 'ha-url-error' : undefined}

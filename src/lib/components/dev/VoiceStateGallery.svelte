@@ -9,7 +9,6 @@
 	let { onclose }: Props = $props();
 
 	const samples: { name: string; state: VoiceStageState }[] = [
-		{ name: 'Ready', state: { kind: 'ready' } },
 		{ name: 'Needs microphone', state: { kind: 'needs-microphone' } },
 		{ name: 'Connecting', state: { kind: 'connecting', microphoneOn: true } },
 		{

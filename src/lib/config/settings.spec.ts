@@ -66,6 +66,36 @@ describe('browser settings storage', () => {
 		);
 	});
 
+	it('replaces an unsupported stored voice without resetting other settings', () => {
+		const stored = {
+			version: 1,
+			data: {
+				onboardingCompleted: true,
+				mcp: { url: 'https://a.b/mcp' },
+				models: { voice: 'marin', textModel: 'custom-model' },
+				history: { enabled: false }
+			}
+		};
+		const loaded = loadSettings(memoryStorage({ [STORAGE_KEYS.settings]: JSON.stringify(stored) }));
+		expect(loaded.models.voice).toBe('gleam');
+		expect(loaded.models.textModel).toBe('custom-model');
+		expect(loaded.mcp.url).toBe('https://a.b/mcp');
+		expect(loaded).not.toHaveProperty('history');
+		expect(loaded.onboardingCompleted).toBe(true);
+		expect(settingsSchema.safeParse({ models: { voice: 'marin' } }).success).toBe(false);
+	});
+
+	it('ignores legacy history and transcript-retention preferences', () => {
+		const stored = {
+			version: 1,
+			data: { onboardingCompleted: true, history: { enabled: false, retainTranscripts: false } }
+		};
+		const loaded = loadSettings(memoryStorage({ [STORAGE_KEYS.settings]: JSON.stringify(stored) }));
+		expect(loaded.onboardingCompleted).toBe(true);
+		expect(loaded).not.toHaveProperty('history');
+		expect(settingsSchema.parse({ history: { enabled: false } })).not.toHaveProperty('history');
+	});
+
 	it('drops empty secrets and removes the key when none remain', () => {
 		const storage = memoryStorage();
 		saveSecrets(storage, { openaiApiKey: 'sk-test', mcpToken: '' });

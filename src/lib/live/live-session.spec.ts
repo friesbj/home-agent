@@ -68,6 +68,7 @@ interface SetupOptions {
 	/** Answer of the session endpoint when it should fail. */
 	sessionFailure?: () => Response;
 	onTranscript?: (turns: LiveTranscriptTurn[]) => void;
+	onAutoEnd?: (reason: 'idle' | 'hidden' | 'expired') => void;
 	tool?: (body: ToolRequestBody) => LiveToolResponse | Promise<LiveToolResponse>;
 }
 
@@ -169,7 +170,7 @@ describe('LiveSessionController', () => {
 			getConfiguration: () => ({
 				apiKey: 'browser-test-key',
 				backendModel: 'gpt-6-astra',
-				voice: 'marin',
+				voice: 'gleam',
 				mcp: {
 					url: 'https://ha.example.com/api/mcp',
 					transport: 'streamable-http',
@@ -178,6 +179,7 @@ describe('LiveSessionController', () => {
 			}),
 			onTranscript: options.onTranscript,
 			onInterrupted,
+			onAutoEnd: options.onAutoEnd,
 			runtime
 		});
 		const audio = { srcObject: null, play: vi.fn(async () => {}) } as unknown as HTMLAudioElement;
@@ -245,7 +247,8 @@ describe('LiveSessionController', () => {
 		expect(JSON.parse(String(init?.body))).toEqual({
 			sdp: SDP,
 			backendModel: 'gpt-6-astra',
-			voice: 'marin',
+			voice: 'gleam',
+			input: [],
 			mcp: { url: 'https://ha.example.com/api/mcp', transport: 'streamable-http' }
 		});
 		const headers = new Headers(init?.headers);
@@ -295,11 +298,21 @@ describe('LiveSessionController', () => {
 		expect(track.stop).toHaveBeenCalledOnce();
 		expect(peer.close).toHaveBeenCalledOnce();
 		expect(audio.srcObject).toBeNull();
-		expect(states.at(-1)).toEqual({ kind: 'ready' });
-		expect(onTranscript).toHaveBeenCalledOnce();
-		expect(onTranscript).toHaveBeenCalledWith([
-			{ role: 'user', startMs: 1000, endMs: 1200, text: 'Turn on the light.' },
-			{ role: 'assistant', startMs: 1100, endMs: 1300, text: 'The light is on.' }
+		expect(states.at(-1)).toEqual({ kind: 'needs-microphone' });
+		expect(onTranscript).toHaveBeenCalled();
+		expect(onTranscript).toHaveBeenLastCalledWith([
+			expect.objectContaining({
+				role: 'user',
+				startMs: 1000,
+				endMs: 1200,
+				text: 'Turn on the light.'
+			}),
+			expect.objectContaining({
+				role: 'assistant',
+				startMs: 1100,
+				endMs: 1300,
+				text: 'The light is on.'
+			})
 		]);
 	});
 
@@ -316,7 +329,7 @@ describe('LiveSessionController', () => {
 
 		// No leftover shutdown timer may tear down a later session.
 		await vi.advanceTimersByTimeAsync(20_000);
-		expect(context.states.at(-1)).toEqual({ kind: 'ready' });
+		expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' });
 		expect(context.peer.close).toHaveBeenCalledOnce();
 	});
 
@@ -326,7 +339,7 @@ describe('LiveSessionController', () => {
 			return { canStart: await controller.prepare(), state: states.at(-1) };
 		};
 
-		expect(await prepared('granted')).toEqual({ canStart: true, state: { kind: 'ready' } });
+		expect(await prepared('granted')).toEqual({ canStart: true, state: undefined });
 		expect(await prepared('prompt')).toEqual({
 			canStart: false,
 			state: { kind: 'needs-microphone', blocked: false }
@@ -396,8 +409,9 @@ describe('LiveSessionController', () => {
 		expect(peer.createDataChannel).not.toHaveBeenCalled();
 	});
 
-	it('keeps the session open on error events and ends it on session.closed', async () => {
-		const context = setup();
+	it('keeps the session open on error events and leaves when the time limit is reached', async () => {
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
 		await context.connect();
 
 		context.emit({
@@ -412,10 +426,8 @@ describe('LiveSessionController', () => {
 		expect(context.peer.close).not.toHaveBeenCalled();
 
 		context.emit({ type: 'session.closed', reason: 'expired' });
-		expect(context.states.at(-1)).toEqual({
-			kind: 'error',
-			message: 'The session reached its time limit. Start a new conversation to continue.'
-		});
+		expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' });
+		expect(onAutoEnd).toHaveBeenCalledWith('expired');
 		expect(context.peer.close).toHaveBeenCalledOnce();
 	});
 
@@ -492,6 +504,37 @@ describe('LiveSessionController', () => {
 		expect(controller.audioLevel).toBeLessThan(peak);
 	});
 
+	it('ends after 60 seconds without a transcript delta', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
+	it('ignores unrelated events and pauses the idle timer while delegation runs', async () => {
+		vi.useFakeTimers();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
+		await context.connect();
+		await vi.advanceTimersByTimeAsync(30_000);
+		context.emit({ type: 'session.usage.updated' });
+		await vi.advanceTimersByTimeAsync(29_999);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		context.emit({ type: 'session.delegation.created' });
+		await vi.advanceTimersByTimeAsync(90_000);
+		expect(onAutoEnd).not.toHaveBeenCalled();
+		context.backend({ type: 'response.completed' });
+		await vi.advanceTimersByTimeAsync(30_000);
+		context.emit({ type: 'session.usage.updated' });
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(onAutoEnd).toHaveBeenCalledWith('idle');
+	});
+
 	it('hints at a silent microphone until sound was measured once', async () => {
 		const context = setup();
 		const notice = () => {
@@ -532,7 +575,8 @@ describe('LiveSessionController', () => {
 
 	it('ends a connected session after the tab remains hidden for 60 seconds', async () => {
 		vi.useFakeTimers();
-		const context = setup();
+		const onAutoEnd = vi.fn();
+		const context = setup({ onAutoEnd });
 		await context.connect();
 
 		context.setHidden(true);
@@ -540,8 +584,9 @@ describe('LiveSessionController', () => {
 		expect(context.sent()).toEqual([]);
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(context.sent()).toEqual([{ type: 'session.close' }]);
+		expect(onAutoEnd).toHaveBeenCalledWith('hidden');
 		context.emit({ type: 'session.closed' });
-		await vi.waitFor(() => expect(context.states.at(-1)).toEqual({ kind: 'ready' }));
+		await vi.waitFor(() => expect(context.states.at(-1)).toEqual({ kind: 'needs-microphone' }));
 	});
 
 	it('retains transcript turns when the server does not confirm shutdown', async () => {
@@ -565,7 +610,12 @@ describe('LiveSessionController', () => {
 			message: 'The server did not confirm session shutdown.'
 		});
 		expect(onTranscript).toHaveBeenCalledWith([
-			{ role: 'user', startMs: 1000, endMs: 1500, text: 'Is the door locked?' }
+			expect.objectContaining({
+				role: 'user',
+				startMs: 1000,
+				endMs: 1500,
+				text: 'Is the door locked?'
+			})
 		]);
 	});
 

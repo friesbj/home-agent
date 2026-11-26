@@ -15,12 +15,13 @@ import {
 	liveToolResponseSchema,
 	type LiveToolResponse
 } from './protocol';
-import { LiveToolCoordinator, type LiveToolApproval } from './tool-calls';
+import { LiveToolCoordinator, type LiveToolApproval, type LiveToolCard } from './tool-calls';
 import type { VoiceStageState } from '$lib/components/VoiceStage.svelte';
 
 const STARTUP_TIMEOUT_MS = 15_000;
 const CLOSE_TIMEOUT_MS = 15_000;
 const HIDDEN_SESSION_TIMEOUT_MS = 60_000;
+const IDLE_SPEECH_TIMEOUT_MS = 60_000;
 const TOOL_TIMEOUT_MS = 60_000;
 const MICROPHONE_SOUND_LEVEL = 0.01;
 const MICROPHONE_QUIET_MS = 8_000;
@@ -40,6 +41,7 @@ export interface LiveConfiguration {
 	apiKey?: string;
 	backendModel: string;
 	voice: string;
+	input?: { role: 'user' | 'assistant'; text: string }[];
 	/** Home Assistant MCP connection for delegated tools; without it the session has no tools. */
 	mcp?: McpTarget | null;
 	confirmation?: ConfirmationPolicy;
@@ -67,7 +69,9 @@ interface LevelMeter {
 export interface LiveSessionOptions {
 	onState: (state: VoiceStageState) => void;
 	getConfiguration: () => LiveConfiguration;
-	/** Receives the session's transcript turns once, when the session ends. */
+	onAutoEnd?: (reason: 'idle' | 'hidden' | 'expired') => void;
+	onToolCards?: (cards: LiveToolCard[]) => void;
+	/** Receives the session's transcript turns as they grow and once more at shutdown. */
 	onTranscript?: (turns: LiveTranscriptTurn[]) => void;
 	/** Called when a session ends while a device change was running or awaiting confirmation. */
 	onInterrupted?: () => void;
@@ -174,8 +178,10 @@ export class LiveSessionController {
 	#onState: LiveSessionOptions['onState'];
 	#onTranscript: LiveSessionOptions['onTranscript'];
 	#onInterrupted: LiveSessionOptions['onInterrupted'];
+	#onAutoEnd: LiveSessionOptions['onAutoEnd'];
+	#onToolCards: LiveSessionOptions['onToolCards'];
 	#getConfiguration: LiveSessionOptions['getConfiguration'];
-	#state: VoiceStageState = { kind: 'ready' };
+	#state: VoiceStageState = { kind: 'needs-microphone' };
 	#peer?: RTCPeerConnection;
 	#channel?: RTCDataChannel;
 	#stream?: MediaStream;
@@ -187,6 +193,7 @@ export class LiveSessionController {
 	#abort?: AbortController;
 	#closeTimer?: ReturnType<typeof setTimeout>;
 	#hiddenTimer?: ReturnType<typeof setTimeout>;
+	#idleTimer?: ReturnType<typeof setTimeout>;
 	#statsTimer?: ReturnType<typeof setInterval>;
 	#visibilityHandler?: () => void;
 	#resolveStarted?: () => void;
@@ -211,11 +218,14 @@ export class LiveSessionController {
 	/** Smoothed activity level (0..1) that drives the orb; the loud side of the conversation. */
 	#level = 0;
 	#transcript = initialLiveTranscriptState;
+	#transcriptSessionId = '';
 
 	constructor(options: LiveSessionOptions) {
 		this.#onState = options.onState;
 		this.#onTranscript = options.onTranscript;
 		this.#onInterrupted = options.onInterrupted;
+		this.#onAutoEnd = options.onAutoEnd;
+		this.#onToolCards = options.onToolCards;
 		this.#getConfiguration = options.getConfiguration;
 		this.#runtime = options.runtime;
 	}
@@ -234,12 +244,12 @@ export class LiveSessionController {
 	 * first-use setup, or the blocked notice. Returns whether a conversation can start unprompted.
 	 */
 	async prepare(): Promise<boolean> {
+		if (this.#endPromise) await this.#endPromise;
 		const idle = () => this.#state.kind !== 'connecting' && !this.#connected;
 		if (!idle()) return false;
 		const permission = await this.#browser.queryMicrophonePermission();
 		if (!idle()) return false;
 		if (permission === 'granted') {
-			this.#setState({ kind: 'ready' });
 			return true;
 		}
 		this.#setState({ kind: 'needs-microphone', blocked: permission === 'denied' });
@@ -249,6 +259,7 @@ export class LiveSessionController {
 	async start(audio: HTMLAudioElement) {
 		if (this.#state.kind === 'connecting' || this.#connected) return;
 		const generation = ++this.#generation;
+		this.#transcriptSessionId = crypto.randomUUID();
 		this.#transcript = initialLiveTranscriptState;
 		this.#transcriptSaved = false;
 		this.#transcriptSaveFailed = false;
@@ -375,6 +386,7 @@ export class LiveSessionController {
 					sdp,
 					backendModel: configuration.backendModel,
 					voice: configuration.voice,
+					input: configuration.input ?? [],
 					mcp: mcp ? { url: mcp.url, transport: mcp.transport } : undefined
 				}),
 				signal
@@ -392,7 +404,9 @@ export class LiveSessionController {
 				send: (event) => this.#send(event),
 				execute: (call, approval, toolSignal) => this.#executeTool(call, approval, toolSignal),
 				onChange: () => {
+					this.#syncIdleTimer();
 					if (this.#connected) this.#publishConnected();
+					this.#onToolCards?.(this.#tools?.cards ?? []);
 				}
 			});
 
@@ -431,7 +445,10 @@ export class LiveSessionController {
 
 	/** Answers the confirmation that is currently shown on the stage. */
 	respondToConfirmation(approved: boolean) {
-		if (this.#connected && !this.#ending) this.#tools?.respond(approved);
+		if (this.#connected && !this.#ending) {
+			this.#tools?.respond(approved);
+			this.#touchIdleTimer();
+		}
 	}
 
 	/** Ends the session. Repeated calls while it is closing share the same shutdown. */
@@ -442,11 +459,22 @@ export class LiveSessionController {
 		return this.#endPromise;
 	}
 
+	/** Releases the microphone immediately while provider shutdown continues in the background. */
+	leave() {
+		for (const track of this.#stream?.getTracks() ?? []) {
+			track.enabled = false;
+			track.stop();
+		}
+		this.#microphoneOn = false;
+		this.#stream = undefined;
+		if (this.#connected) this.#publishConnected();
+	}
+
 	async #end() {
 		if (!this.#connected) {
 			this.#abort?.abort();
 			this.#releaseResources();
-			this.#setState({ kind: 'ready' });
+			this.#setState({ kind: 'needs-microphone' });
 			return;
 		}
 		if (!this.#channel || this.#channel.readyState !== 'open') {
@@ -461,7 +489,9 @@ export class LiveSessionController {
 		// A response waiting for a tool result cannot continue once closing starts.
 		this.#ending = true;
 		this.#cancelTools();
-		for (const track of this.#stream?.getAudioTracks() ?? []) track.enabled = false;
+		for (const track of this.#stream?.getAudioTracks() ?? []) {
+			track.enabled = false;
+		}
 		this.#microphoneOn = false;
 		this.#publishConnected();
 
@@ -482,7 +512,9 @@ export class LiveSessionController {
 			const transcriptSaved = this.#saveTranscript();
 			this.#releaseResources();
 			this.#setState(
-				transcriptSaved ? { kind: 'ready' } : { kind: 'error', message: TRANSCRIPT_NOT_SAVED }
+				transcriptSaved
+					? { kind: 'needs-microphone' }
+					: { kind: 'error', message: TRANSCRIPT_NOT_SAVED }
 			);
 		} catch (error) {
 			const message = this.#saveTranscript() ? getErrorMessage(error) : TRANSCRIPT_NOT_SAVED;
@@ -511,12 +543,21 @@ export class LiveSessionController {
 		if (event.type === 'session.started') {
 			this.#connected = true;
 			this.#resolveStarted?.();
+			this.#touchIdleTimer();
 			this.#publishConnected();
 			return;
 		}
 		if (event.type === 'session.closed') {
 			this.#resolveClosed?.();
-			if (!this.#ending) this.#fail(closedMessage(event.reason));
+			if (!this.#ending && event.reason === 'expired') {
+				if (!this.#saveTranscript()) {
+					this.#fail(TRANSCRIPT_NOT_SAVED);
+					return;
+				}
+				this.#releaseResources();
+				this.#setState({ kind: 'needs-microphone' });
+				this.#onAutoEnd?.('expired');
+			} else if (!this.#ending) this.#fail(closedMessage(event.reason));
 			return;
 		}
 		if (event.type === 'error') {
@@ -535,8 +576,21 @@ export class LiveSessionController {
 
 		if (event.type === 'session.input_transcript.delta') this.#notice = undefined;
 		this.#transcript = reduceLiveTranscript(this.#transcript, event);
+		if (
+			event.type === 'session.input_transcript.delta' ||
+			event.type === 'session.output_transcript.delta'
+		) {
+			this.#touchIdleTimer();
+			try {
+				this.#publishTranscriptTurns();
+			} catch {
+				// Live fragments must not break event handling. Shutdown still reports persistence failure.
+				this.#transcriptSaveFailed = true;
+			}
+		}
 		const backendEvent = readBackendEvent(event);
 		if (backendEvent && !this.#ending) this.#tools?.handle(backendEvent);
+		this.#syncIdleTimer();
 		if (this.#connected) this.#publishConnected();
 	}
 
@@ -554,6 +608,37 @@ export class LiveSessionController {
 			notice: this.#notice ?? (this.#microphoneQuiet ? MICROPHONE_QUIET : undefined),
 			closing: this.#ending
 		});
+	}
+
+	#touchIdleTimer() {
+		if (this.#idleTimer) clearTimeout(this.#idleTimer);
+		this.#idleTimer = undefined;
+		this.#syncIdleTimer();
+	}
+
+	#syncIdleTimer() {
+		if (
+			!this.#connected ||
+			this.#ending ||
+			this.#browser.document.hidden ||
+			this.#transcript.thinking ||
+			this.#tools?.busy
+		) {
+			if (this.#idleTimer) clearTimeout(this.#idleTimer);
+			this.#idleTimer = undefined;
+			return;
+		}
+		if (this.#idleTimer) return;
+		this.#idleTimer = setTimeout(() => {
+			this.#idleTimer = undefined;
+			this.#autoEnd('idle');
+		}, IDLE_SPEECH_TIMEOUT_MS);
+	}
+
+	#autoEnd(reason: 'idle' | 'hidden') {
+		this.leave();
+		void this.end();
+		this.#onAutoEnd?.(reason);
 	}
 
 	#send(event: Record<string, unknown>) {
@@ -608,8 +693,11 @@ export class LiveSessionController {
 		this.#visibilityHandler = () => {
 			if (this.#hiddenTimer) clearTimeout(this.#hiddenTimer);
 			this.#hiddenTimer = this.#browser.document.hidden
-				? setTimeout(() => void this.end(), HIDDEN_SESSION_TIMEOUT_MS)
+				? setTimeout(() => {
+						this.#autoEnd('hidden');
+					}, HIDDEN_SESSION_TIMEOUT_MS)
 				: undefined;
+			this.#syncIdleTimer();
 		};
 		this.#browser.document.addEventListener('visibilitychange', this.#visibilityHandler);
 		this.#visibilityHandler();
@@ -631,16 +719,21 @@ export class LiveSessionController {
 		if (!this.#connected) return true;
 		if (this.#transcriptSaved) return !this.#transcriptSaveFailed;
 		this.#transcriptSaved = true;
-		const turns = this.#transcript.turns
-			.filter((turn) => turn.text.trim().length > 0)
-			.sort((left, right) => (left.startMs ?? 0) - (right.startMs ?? 0));
 		try {
-			if (turns.length) this.#onTranscript?.(turns);
+			this.#publishTranscriptTurns();
 			return true;
 		} catch {
 			this.#transcriptSaveFailed = true;
 			return false;
 		}
+	}
+
+	#publishTranscriptTurns() {
+		const turns = this.#transcript.turns
+			.filter((turn) => turn.text.trim().length > 0)
+			.sort((left, right) => (left.startMs ?? 0) - (right.startMs ?? 0))
+			.map((turn) => ({ ...turn, id: `${this.#transcriptSessionId}:${turn.id}` }));
+		if (turns.length) this.#onTranscript?.(turns);
 	}
 
 	#createMeter(stream: MediaStream): LevelMeter {
@@ -762,6 +855,7 @@ export class LiveSessionController {
 		this.#cancelTools();
 		if (this.#closeTimer) clearTimeout(this.#closeTimer);
 		if (this.#hiddenTimer) clearTimeout(this.#hiddenTimer);
+		if (this.#idleTimer) clearTimeout(this.#idleTimer);
 		if (this.#statsTimer) clearInterval(this.#statsTimer);
 		if (this.#visibilityHandler) {
 			this.#browser.document.removeEventListener('visibilitychange', this.#visibilityHandler);
@@ -772,7 +866,7 @@ export class LiveSessionController {
 		if (this.#audioContext && this.#audioContext.state !== 'closed') {
 			const closeGeneration = this.#generation + 1;
 			void this.#audioContext.close().catch(() => {
-				if (this.#generation === closeGeneration && this.#state.kind === 'ready') {
+				if (this.#generation === closeGeneration && this.#state.kind === 'needs-microphone') {
 					this.#setState({ kind: 'error', message: 'Could not release the audio monitor.' });
 				}
 			});
@@ -810,6 +904,7 @@ export class LiveSessionController {
 		this.#abort = undefined;
 		this.#visibilityHandler = undefined;
 		this.#hiddenTimer = undefined;
+		this.#idleTimer = undefined;
 		this.#closeTimer = undefined;
 		this.#sessionId = undefined;
 		this.#notice = undefined;

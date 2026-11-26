@@ -115,7 +115,7 @@ async function fakeMicrophoneAndWebRtc(page: Page) {
 	});
 }
 
-async function setup(page: Page, options: { retainTranscripts?: boolean } = {}) {
+async function setup(page: Page) {
 	const sessionRequests: { body: Record<string, unknown>; headers: Record<string, string> }[] = [];
 	await fakeMicrophoneAndWebRtc(page);
 	await page.route('**/api/live/session', (route) => {
@@ -133,10 +133,6 @@ async function setup(page: Page, options: { retainTranscripts?: boolean } = {}) 
 	await page.getByLabel(/Server address/).fill(MCP_URL);
 	await page.getByLabel('Access token', { exact: true }).fill('e2e-mcp-token');
 	await page.getByLabel('OpenAI API key').fill('sk-e2e-test');
-	if (options.retainTranscripts) {
-		await page.getByText('Advanced settings', { exact: true }).click();
-		await page.getByLabel('Also add voice conversations to the chat as text').check();
-	}
 	await page.getByRole('button', { name: 'Finish setup' }).click();
 	await expect(page).toHaveURL(/\/$/);
 	return sessionRequests;
@@ -172,8 +168,10 @@ async function audit(page: Page) {
 }
 
 /** Opens the stage from the Assistant header or, on a phone, from the navigation orb. */
-async function openStage(page: Page, opener: 'Voice' | 'Start voice mode') {
-	await page.getByRole('button', { name: opener, exact: true }).click();
+async function openStage(page: Page) {
+	const composer = page.locator('#start-voice');
+	if (await composer.isVisible()) await composer.click();
+	else await page.locator('#voice-orb').click();
 	return page.getByRole('dialog', { name: 'Live conversation' });
 }
 
@@ -183,8 +181,8 @@ test('voice runs a read and a confirmed change through the server and joins the 
 }) => {
 	// With the microphone already allowed, opening the stage connects without another step.
 	await context.grantPermissions(['microphone']);
-	const sessionRequests = await setup(page, { retainTranscripts: true });
-	const stage = await openStage(page, 'Voice');
+	const sessionRequests = await setup(page);
+	const stage = await openStage(page);
 	await expect(stage.getByRole('status')).toHaveText('Listening');
 	await expect(stage.getByRole('button', { name: 'End', exact: true })).toBeFocused();
 	await page.evaluate(() => window.__live.setMicrophoneAudio(true));
@@ -246,18 +244,31 @@ test('voice runs a read and a confirmed change through the server and joins the 
 		delta: 'The kitchen light is on.'
 	});
 	await stage.getByRole('button', { name: 'End', exact: true }).click();
-	await expect(stage.getByRole('status')).toHaveText('Ready');
 	expect(await page.evaluate(() => window.__live.microphone?.readyState)).toBe('ended');
-
-	await stage.getByRole('button', { name: 'Back to text' }).click();
 	await expect(stage).toBeHidden();
-	await expect(page.getByRole('button', { name: 'Voice', exact: true })).toBeFocused();
+	await expect(page.locator('#start-voice')).toBeFocused();
 	const chat = page.getByRole('region', { name: 'Chat' });
 	await expect(chat.getByText('Turn on the kitchen light.', { exact: true })).toBeVisible();
 	await expect(chat.getByText('The kitchen light is on.', { exact: true })).toBeVisible();
 	// The voice turns are saved with the conversation, like typed messages.
 	await expect(chat.getByLabel('Conversation')).toContainText('Turn on the kitchen light.');
+	// Voice tool calls render as the same cards as text mode, not raw JSON.
+	await expect(chat.getByText('HassTurnOn')).toBeVisible();
+	await expect(chat.getByText('GetLiveContext')).toBeVisible();
+	await expect(chat.getByText('Show result').first()).toBeVisible();
+	await expect(chat.getByText(TURN_ON_SUMMARY, { exact: true })).toHaveCount(1);
 	await expect(page.getByText(INTERRUPTED)).toBeHidden();
+	const savedConversation = chat
+		.getByLabel('Conversation')
+		.locator('option', { hasText: 'Turn on the kitchen light.' });
+	const savedId = await savedConversation.getAttribute('value');
+	if (!savedId) throw new Error('Voice conversation was not saved.');
+	await page.reload();
+	await page.getByLabel('Conversation').selectOption(savedId);
+	await expect(chat.getByText('Turn on the kitchen light.', { exact: true })).toBeVisible();
+	await expect(chat.getByText('GetLiveContext')).toBeVisible();
+	await expect(chat.getByText('HassTurnOn')).toBeVisible();
+	await expect(chat.getByRole('button', { name: 'Approve' })).toHaveCount(0);
 });
 
 test('first use explains voice, and leaving abandons a pending confirmation', async ({ page }) => {
@@ -266,10 +277,10 @@ test('first use explains voice, and leaving abandons a pending confirmation', as
 	await setup(page);
 
 	// The microphone was never allowed: the stage opens on the setup screen instead of connecting.
-	const stage = await openStage(page, 'Start voice mode');
+	const stage = await openStage(page);
 	await expect(stage.getByRole('status')).toHaveText('Microphone access needed');
-	await expect(stage.getByText(/Transcripts are not stored unless you turn that on/)).toBeVisible();
-	await expect(stage.getByText('Voice: marin')).toBeVisible();
+	await expect(stage.getByText(/Voice\s+transcripts are stored unencrypted/)).toBeVisible();
+	await expect(stage.getByText(/Gleam · Warm and conversational/)).toBeVisible();
 	await expect(stage.getByRole('link', { name: 'Change in Settings' })).toBeVisible();
 	const allow = stage.getByRole('button', { name: 'Allow microphone' });
 	await expect(allow).toBeFocused();
@@ -313,9 +324,13 @@ test('first use explains voice, and leaving abandons a pending confirmation', as
 
 	await page.keyboard.press('Escape');
 	await expect(stage).toBeHidden();
-	await expect(page.getByRole('button', { name: 'Start voice mode' })).toBeFocused();
+	await expect(page.locator('#voice-orb')).toBeFocused();
 	await expect(page.getByText(INTERRUPTED)).toBeVisible();
-	await expect(page.getByText('Turn on the kitchen light.')).toHaveCount(0);
+	await expect(
+		page
+			.getByRole('article', { name: 'You' })
+			.getByText('Turn on the kitchen light.', { exact: true })
+	).toBeVisible();
 	expect(await toolOutput(page, 'call_change')).toBeUndefined();
 	expect(await page.evaluate(() => window.__live.microphone?.readyState)).toBe('ended');
 });
@@ -323,7 +338,7 @@ test('first use explains voice, and leaving abandons a pending confirmation', as
 test('the stage fits a phone in landscape with the orb beside the controls', async ({ page }) => {
 	await setup(page);
 	await page.setViewportSize({ width: 844, height: 390 });
-	const stage = await openStage(page, 'Start voice mode');
+	const stage = await openStage(page);
 	await stage.getByRole('button', { name: 'Allow microphone' }).click();
 	await expect(stage.getByRole('status')).toHaveText('Listening');
 

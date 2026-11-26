@@ -4,7 +4,6 @@ import { render } from 'vitest-browser-svelte';
 import VoiceStage, { type VoiceStageState } from './VoiceStage.svelte';
 
 const states: { name: string; state: VoiceStageState; status: string }[] = [
-	{ name: 'ready', state: { kind: 'ready' }, status: 'Ready' },
 	{
 		name: 'microphone permission',
 		state: { kind: 'needs-microphone' },
@@ -145,12 +144,15 @@ describe('VoiceStage', () => {
 	it('explains voice on first use and offers a retry when the microphone is blocked', async () => {
 		const screen = render(VoiceStage, {
 			state: { kind: 'needs-microphone' },
-			voiceName: 'marin',
+			voiceName: 'gleam',
 			onpermission: () => {}
 		});
 
-		await expect.element(page.getByText(/sent through this application's server/)).toBeVisible();
-		await expect.element(page.getByText('Voice: marin')).toBeVisible();
+		await expect.element(page.getByText(/sent to the model provider/)).toBeVisible();
+		await expect
+			.element(page.getByText(/Voice\s+transcripts are stored unencrypted/))
+			.toBeVisible();
+		await expect.element(page.getByText(/Gleam · Warm and conversational/)).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Change in Settings' }))
 			.toHaveAttribute('href', '/settings');
@@ -163,7 +165,7 @@ describe('VoiceStage', () => {
 		await screen.rerender({ state: { kind: 'needs-microphone', blocked: true } });
 		await expect.element(page.getByText(/Allow the microphone for this site/)).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
-		await expect.element(page.getByText('Voice: marin')).not.toBeInTheDocument();
+		await expect.element(page.getByText(/Gleam · Warm and conversational/)).not.toBeInTheDocument();
 	});
 
 	it('moves focus to the confirmation card and reports the decision', async () => {

@@ -1,6 +1,7 @@
 import { isToolUIPart, type UIMessage } from 'ai';
 import { z } from 'zod';
 import { STORAGE_PREFIX } from '$lib/config/settings';
+import type { LiveToolCard } from '$lib/live/tool-calls';
 
 export const LEGACY_CHAT_HISTORY_KEY = `${STORAGE_PREFIX}chat-history.v1`;
 export const CHAT_SESSION_PREFIX = `${STORAGE_PREFIX}chat-session.v1.`;
@@ -14,6 +15,33 @@ const sessionSchema = z.object({
 		z.object({
 			id: z.string().min(1),
 			role: z.enum(['user', 'assistant']),
+			metadata: z
+				.union([
+					z.object({
+						source: z.literal('voice'),
+						voiceTurnId: z.string().min(1).max(128)
+					}),
+					z.object({
+						source: z.literal('action'),
+						actionCardId: z.string().min(1).max(128),
+						actionCard: z.object({
+							id: z.string(),
+							kind: z.enum(['read', 'change']),
+							label: z.string(),
+							summary: z.string(),
+							status: z.enum([
+								'running',
+								'waiting-confirmation',
+								'done',
+								'denied',
+								'failed',
+								'interrupted'
+							]),
+							output: z.string().optional()
+						})
+					})
+				])
+				.optional(),
 			parts: z.array(z.object({ type: z.literal('text'), text: z.string() })).min(1)
 		})
 	),
@@ -62,9 +90,51 @@ export function textSnapshot(messages: UIMessage[], interruptedTools: boolean) {
 			)
 				interruptedTools = true;
 		}
-		if (parts.length) textMessages.push({ id: message.id, role: message.role, parts });
+		if (parts.length) {
+			const metadata = message.metadata as
+				| { source?: 'voice'; voiceTurnId?: string }
+				| { source?: 'action'; actionCardId?: string; actionCard?: LiveToolCard }
+				| undefined;
+			textMessages.push({
+				id: message.id,
+				role: message.role,
+				...(metadata?.source === 'voice' && metadata.voiceTurnId
+					? { metadata: { source: 'voice', voiceTurnId: metadata.voiceTurnId } }
+					: metadata?.source === 'action' && metadata.actionCardId && metadata.actionCard
+						? {
+								metadata: {
+									source: 'action',
+									actionCardId: metadata.actionCardId,
+									actionCard: metadata.actionCard
+								}
+							}
+						: {}),
+				parts
+			});
+		}
 	}
 	return { messages: textMessages, interruptedTools };
+}
+
+export function liveContextInput(messages: UIMessage[]) {
+	const snapshot = textSnapshot(messages, false).messages;
+	const result: { role: 'user' | 'assistant'; text: string }[] = [];
+	let characters = 0;
+	for (const message of [...snapshot].reverse()) {
+		if (result.length >= 128) break;
+		const text = message.parts
+			.map((part) => part.text)
+			.join('\n')
+			.trim();
+		if (!text) continue;
+		const remaining = 8192 - characters;
+		if (remaining <= 0) break;
+		const bounded = text.slice(-Math.min(4096, remaining)).trim();
+		if (!bounded) continue;
+		result.push({ role: message.role, text: bounded });
+		characters += bounded.length;
+	}
+	return result.reverse();
 }
 
 export function writeSession(

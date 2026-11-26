@@ -7,6 +7,7 @@ import {
 import { appConfig } from '$lib/config/app-config.svelte';
 import { loadSettings, STORAGE_KEYS } from '$lib/config/settings';
 import type { LiveTranscriptTurn } from '$lib/live/events';
+import type { LiveToolCard } from '$lib/live/tool-calls';
 import { credentialHeaders, savedMcpTarget } from './api';
 import {
 	CHAT_SESSION_PREFIX,
@@ -15,6 +16,7 @@ import {
 	loadSessions,
 	sessionKey,
 	textSnapshot,
+	liveContextInput as buildLiveContextInput,
 	writeSession,
 	type ChatSession
 } from './chat-history';
@@ -94,20 +96,63 @@ class ChatSessionManager {
 		return true;
 	}
 
-	/** Adds the turns of a finished voice session to this chat when transcript retention is on. */
+	/** Adds or updates voice turns in the active chat; persistence is handled separately. */
 	appendVoiceTranscript(turns: LiveTranscriptTurn[]) {
-		const { enabled, retainTranscripts } = appConfig.settings.history;
-		if (!enabled || !retainTranscripts) return;
 		const messages = [...this.chat.messages];
 		for (const turn of turns) {
 			if (!turn.text.trim()) continue;
-			messages.push({
-				id: crypto.randomUUID(),
-				role: turn.role,
-				parts: [{ type: 'text', text: turn.text }]
-			});
+			const voiceTurnId =
+				turn.id ?? `${turn.role}-${turn.startMs ?? turn.endMs ?? crypto.randomUUID()}`;
+			const existingIndex = messages.findIndex(
+				(message) =>
+					(message.metadata as { voiceTurnId?: string } | undefined)?.voiceTurnId === voiceTurnId
+			);
+			if (existingIndex >= 0) {
+				messages[existingIndex] = {
+					...messages[existingIndex],
+					parts: [{ type: 'text', text: turn.text }]
+				};
+			} else {
+				messages.push({
+					id: crypto.randomUUID(),
+					role: turn.role,
+					metadata: { source: 'voice', voiceTurnId },
+					parts: [{ type: 'text', text: turn.text }]
+				});
+			}
 		}
 		this.chat.messages = messages;
+	}
+
+	appendLiveToolCards(cards: LiveToolCard[]) {
+		const messages = [...this.chat.messages];
+		for (const card of cards) {
+			const existingIndex = messages.findIndex(
+				(message) =>
+					(message.metadata as { actionCardId?: string } | undefined)?.actionCardId === card.id
+			);
+			const metadata = { source: 'action' as const, actionCardId: card.id, actionCard: card };
+			if (existingIndex >= 0) {
+				messages[existingIndex] = {
+					...messages[existingIndex],
+					metadata,
+					parts: [{ type: 'text', text: card.summary || card.label }]
+				};
+			} else {
+				messages.push({
+					id: crypto.randomUUID(),
+					role: 'assistant',
+					metadata,
+					parts: [{ type: 'text', text: card.summary || card.label }]
+				});
+			}
+		}
+		this.chat.messages = messages;
+	}
+
+	/** Recent text messages, bounded for provider context and server validation. */
+	liveContextInput() {
+		return buildLiveContextInput(this.chat.messages);
 	}
 
 	async initialize() {
@@ -139,10 +184,6 @@ class ChatSessionManager {
 	}
 
 	refresh() {
-		if (!appConfig.settings.history.enabled) {
-			this.sessions = [];
-			return;
-		}
 		try {
 			this.sessions = loadSessions(localStorage);
 		} catch {
@@ -153,18 +194,13 @@ class ChatSessionManager {
 	}
 
 	async persist(messages: UIMessage[], interruptedTools: boolean, generation = this.generation) {
-		if (!appConfig.settings.history.enabled || !this.available || messages.length === 0) return;
+		if (!this.available || messages.length === 0) return;
 		const snapshot = textSnapshot(messages, interruptedTools);
 		if (snapshot.messages.length === 0) return;
 		try {
 			await withHistoryLock(() => {
 				const settings = loadSettings(localStorage);
-				if (
-					generation !== this.generation ||
-					!this.available ||
-					!settings.onboardingCompleted ||
-					!settings.history.enabled
-				)
+				if (generation !== this.generation || !this.available || !settings.onboardingCompleted)
 					return;
 				const session: ChatSession = {
 					version: 1,

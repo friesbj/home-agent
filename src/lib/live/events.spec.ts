@@ -31,8 +31,14 @@ describe('Live data-channel events', () => {
 		]);
 
 		expect(state.turns).toEqual([
-			{ role: 'user', startMs: 1000, endMs: 1500, text: 'Turn on the light.' },
-			{ role: 'assistant', startMs: 1100, endMs: 1300, text: 'I can do that.' }
+			{ id: 'user-1000', role: 'user', startMs: 1000, endMs: 1500, text: 'Turn on the light.' },
+			{
+				id: 'assistant-1100',
+				role: 'assistant',
+				startMs: 1100,
+				endMs: 1300,
+				text: 'I can do that.'
+			}
 		]);
 		expect(state.heardText).toBe('Turn on the light.');
 		expect(state.spokenText).toBe('I can do that.');

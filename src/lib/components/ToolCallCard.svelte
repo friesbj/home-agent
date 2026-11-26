@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { DynamicToolUIPart, ToolUIPart } from 'ai';
-	import { Ban, Eye, PenLine } from '@lucide/svelte';
 	import { baseToolName, classifyToolName, describeToolCall } from '$lib/home/ha-policy';
+	import { formatToolOutput } from '$lib/home/tool-output';
+	import ToolActionCard from './ToolActionCard.svelte';
 
 	interface Props {
 		part: ToolUIPart | DynamicToolUIPart;
@@ -39,54 +40,16 @@
 				return { text: '', tone: '' };
 		}
 	});
-
-	function formatOutput(output: unknown): string {
-		const content = (output as { content?: { type: string; text?: string }[] } | undefined)
-			?.content;
-		const text = Array.isArray(content)
-			? content
-					.filter((item) => item.type === 'text')
-					.map((item) => item.text)
-					.join('\n')
-			: JSON.stringify(output, null, 2);
-		return text.length > 4000 ? `${text.slice(0, 4000)}\n…` : text;
-	}
 </script>
 
-<div
-	class={[
-		'rounded-tile p-3 text-sm surface-solid',
-		part.state === 'approval-requested' && 'border-l-4 border-l-warning'
-	]}
+<ToolActionCard
+	{kind}
+	{label}
+	{summary}
+	statusText={status.text}
+	statusTone={status.tone}
+	highlight={part.state === 'approval-requested'}
 >
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<span class="flex min-w-0 items-center gap-2 font-medium">
-			<span
-				class={[
-					'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wide uppercase',
-					kind === 'mutation' && 'border-warning/50 text-warning',
-					kind === 'read' && 'border-cool/50 text-cool',
-					kind === 'blocked' && 'border-danger/50 text-danger'
-				]}
-			>
-				{#if kind === 'mutation'}<PenLine
-						size={12}
-						aria-hidden="true"
-					/>{:else if kind === 'read'}<Eye size={12} aria-hidden="true" />{:else}<Ban
-						size={12}
-						aria-hidden="true"
-					/>{/if}
-				{kind === 'mutation' ? 'Change' : kind === 'read' ? 'Read' : 'Blocked'}
-			</span>
-			<span class="truncate font-mono text-ink-muted">{label}</span>
-		</span>
-		<span class={['font-medium', status.tone]}>{status.text}</span>
-	</div>
-
-	{#if summary}
-		<p class="mt-2 text-base">{summary}</p>
-	{/if}
-
 	{#if part.state === 'approval-requested'}
 		<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Confirm {label}">
 			<button
@@ -115,9 +78,9 @@
 				>Show result</summary
 			>
 			<pre
-				class="mt-1 max-h-64 overflow-auto rounded-control bg-[#0f1733] p-3 text-xs whitespace-pre-wrap">{formatOutput(
+				class="mt-1 max-h-64 overflow-auto rounded-control bg-[#0f1733] p-3 text-xs whitespace-pre-wrap">{formatToolOutput(
 					part.output
 				)}</pre>
 		</details>
 	{/if}
-</div>
+</ToolActionCard>

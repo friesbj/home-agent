@@ -8,6 +8,7 @@ export interface LiveTranscriptState {
 }
 
 export interface LiveTranscriptTurn {
+	id?: string;
 	role: 'user' | 'assistant';
 	text: string;
 	startMs?: number;
@@ -73,6 +74,7 @@ export function reduceLiveTranscript(
 			};
 		} else {
 			turns.push({
+				id: `${role}-${startMs ?? turns.length}`,
 				role,
 				text: event.delta,
 				...(startMs === undefined ? {} : { startMs }),

@@ -2,7 +2,52 @@
 
 This file records implementation and repository changes made by agents. Entries are append-only and ordered newest first.
 
+## 2026-11-26
+
+### 2026-11-26T20:18:00+01:00
+
+- **M3a checkpoint:** recorded the outstanding abrupt-reload handling for running voice action cards in `Milestones.md`; M3a remains in progress.
+- **Validation:** `npm run check` passed; `npx vitest run` passed 180 tests; `npx playwright test e2e/chat-history.test.ts e2e/voice.test.ts` passed 14 tests; `npx eslint .` passed.
+
 ## 2026-11-25
+
+### 2026-11-25T12:09:00+01:00
+
+- **M3a — always-on chat history:** removed the history switch and persistence guards, ignored legacy disabled settings, retained explicit deletion, and updated onboarding, voice-stage, Settings, README, design, and project data notices. Voice read cards now have a nonempty snapshot text so they survive reload. A browser test verifies legacy migration, reload and deletion while retaining credentials; the voice flow verifies restored transcripts and cards.
+- **M3a work in progress:** isolated transcript turn IDs by Live session, bounded each context message to the server's 4,096-character limit, preserved other settings when a stored voice is unsupported, and began automatic-end notices and idle-timer corrections. These automatic-end changes still need broader M3a validation.
+- **Validation:** `npm run check` passed; targeted Vitest 59 passed; `npx playwright test e2e/chat-history.test.ts e2e/voice.test.ts` 14 passed; ESLint passed on the affected source and tests.
+
+### 2026-11-25T11:40:00+01:00
+
+- **M3a fix — voice action cards match the text mode:** voice tool calls previously showed raw JSON. Extracted a shared presentational `ToolActionCard.svelte` and `tool-output.ts` formatter; both the text-mode `ToolCallCard` and the chat's voice action cards now render the same badge, mono tool name, status, and a collapsible "Show result" with pretty-printed JSON. Added `label` to `LiveToolCard`.
+- **Changed:** `src/lib/components/ToolActionCard.svelte` (new), `src/lib/home/tool-output.ts` (new), `src/lib/components/ToolCallCard.svelte`, `src/lib/components/ChatPanel.svelte`, `src/lib/live/tool-calls.ts`, `src/lib/home/chat-history.ts`, `e2e/voice.test.ts`.
+- **Validation:** `npm run check` 0 errors; full Vitest 178 passed; voice e2e 3 passed.
+
+### 2026-11-25T11:00:00+01:00
+
+- **M3a implementation — action cards and natural voice catalog:** the Live tool coordinator publishes serializable action cards; ChatPanel stores/upserts them and shows status without approval controls. Settings replaces the free-text voice field with a catalog-based picker for 24 natural voices; Gleam is the default and the stage shows name and character line.
+- **Validation:** full Vitest 178 passed; voice e2e 3 passed; `npm run check` 0 errors.
+
+### 2026-11-25T09:46:00+01:00
+
+- **M3a implementation — live turns and context:** voice transcript turns are published while fragments grow, upserted by stable turn ID in the active chat, and marked as voice messages. The live session request now seeds `session.input` from the newest text messages.
+- **Changed:** `src/lib/live/events.ts`, `src/lib/live/live-session.ts`, `src/lib/live/protocol.ts`, `src/lib/server/live/session.ts`, `src/lib/home/chat-history.ts`, `src/lib/home/chat-session.svelte.ts`, `src/lib/components/ChatPanel.svelte`, and focused specs.
+- **Validation:** `npm run check` 0 errors; full Vitest 177 passed; voice e2e 3 passed.
+- **Milestone:** M3a - live turn updates, voice markers, and session context.
+
+### 2026-11-25T09:24:00+01:00
+
+- **M3a implementation — End means leave:** removed the Ready state and Back-to-text control from the VoiceStage. End, Escape, setup/error Close, and the page close action now leave immediately to the text view.
+- **Changed:** `src/lib/live/live-session.ts` gained `leave()` to stop and detach the microphone synchronously while provider shutdown continues; `+page.svelte` calls it before starting the async session close. Updated VoiceStage, gallery, unit/component tests, and voice e2e expectations.
+- **Validation:** `npm run check` 0 errors; Live controller tests 21 passed; VoiceStage component tests 17 passed; voice e2e 3 passed.
+- **Milestone:** M3a - End means leave.
+
+### 2026-11-25T09:14:00+01:00
+
+- **M3a implementation — transcript standard:** removed `history.retainTranscripts` from the settings schema and Settings UI. A stored value is ignored by Zod parsing. `appendVoiceTranscript` now appends voice turns whenever chat history is enabled, and the VoiceStage first-use copy documents that behavior.
+- **Changed:** `src/lib/config/settings.ts`, `src/lib/components/SettingsForm.svelte`, `src/lib/home/chat-session.svelte.ts`, `src/lib/components/VoiceStage.svelte`, `e2e/voice.test.ts`, `README.md`, `Milestones.md`, and settings/component tests.
+- **Validation:** `npm run check` 0 errors; settings/live unit tests 30 passed; Settings/Voice component tests 22 passed; `npx playwright test e2e/voice.test.ts` 3 passed.
+- **Milestone:** M3a - Make voice transcripts standard.
 
 ### 2026-11-25T08:55:00+01:00
 

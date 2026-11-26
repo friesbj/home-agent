@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getToolOrDynamicToolName, isToolUIPart } from 'ai';
-	import { appConfig } from '$lib/config/app-config.svelte';
 	import { textSnapshot } from '$lib/home/chat-history';
 	import { getChatSessionManager } from '$lib/home/chat-session.svelte';
 	import {
@@ -15,12 +14,24 @@
 	import AssistantOrb from './AssistantOrb.svelte';
 	import MarkdownMessage from './MarkdownMessage.svelte';
 	import ToolCallCard from './ToolCallCard.svelte';
+	import ToolActionCard from './ToolActionCard.svelte';
+	import { formatToolOutput } from '$lib/home/tool-output';
+	import type { LiveToolCard } from '$lib/live/tool-calls';
 
 	interface Props {
 		onstartvoice?: () => void;
 	}
 
 	let { onstartvoice }: Props = $props();
+
+	const LIVE_CARD_STATUS: Record<LiveToolCard['status'], { text: string; tone: string }> = {
+		running: { text: 'Running…', tone: 'text-ink-muted' },
+		'waiting-confirmation': { text: 'Waiting for your confirmation', tone: 'text-warning' },
+		done: { text: 'Done', tone: 'text-success' },
+		denied: { text: 'Not executed', tone: 'text-ink-muted' },
+		failed: { text: 'Failed', tone: 'text-danger' },
+		interrupted: { text: 'Interrupted, outcome unknown', tone: 'text-ink-muted' }
+	};
 
 	const suggestions = [
 		'Which lights are on right now?',
@@ -42,15 +53,9 @@
 	});
 
 	$effect(() => {
-		if (
-			!appConfig.settings.history.enabled ||
-			!manager.available ||
-			!manager.initialized ||
-			manager.switching
-		)
-			return;
+		if (!manager.available || !manager.initialized || manager.switching) return;
 		const snapshot = textSnapshot(chat.messages, manager.interruptedTools);
-		void manager.persist(snapshot.messages, snapshot.interruptedTools);
+		if (snapshot) void manager.persist(snapshot.messages, snapshot.interruptedTools);
 	});
 
 	async function selectSession(id: string) {
@@ -112,50 +117,34 @@
 		{#if chat.messages.length > 0}
 			<span class="max-lg:hidden"><AssistantOrb size="header" /></span>
 		{/if}
-		{#if appConfig.settings.history.enabled}
-			<label for="chat-session" class="sr-only">Conversation</label>
-			<select
-				id="chat-session"
-				class="field min-h-11 min-w-32 flex-1 py-2 text-sm"
-				value={manager.id}
-				disabled={manager.switching || !manager.available}
-				onchange={(event) => selectSession(event.currentTarget.value)}
-			>
-				{#if !manager.sessions.some((session) => session.id === manager.id)}
-					<option value={manager.id}>New conversation</option>
-				{/if}
-				{#each manager.sessions as session (session.id)}
-					<option value={session.id}
-						>{session.messages
-							.find((message) => message.role === 'user')
-							?.parts[0]?.text.slice(0, 60) || 'Conversation'} · {new Date(
-							session.updatedAt
-						).toLocaleString()}</option
-					>
-				{/each}
-			</select>
-			<button
-				type="button"
-				class="btn shrink-0 btn-secondary"
-				disabled={manager.switching}
-				onclick={() => selectSession('new')}
-				><SquarePen size={16} aria-hidden="true" /> New chat</button
-			>
-		{:else}
-			<p class="flex-1 text-sm text-ink-muted">History is off; this chat is not saved.</p>
-		{/if}
-		{#if onstartvoice}
-			<button
-				id="start-voice"
-				type="button"
-				class="btn shrink-0 btn-secondary"
-				disabled={Boolean(manager.shortcutBlockedReason)}
-				title={manager.shortcutBlockedReason || undefined}
-				onclick={onstartvoice}
-			>
-				<Mic size={16} aria-hidden="true" /> Voice
-			</button>
-		{/if}
+		<label for="chat-session" class="sr-only">Conversation</label>
+		<select
+			id="chat-session"
+			class="field min-h-11 min-w-32 flex-1 py-2 text-sm"
+			value={manager.id}
+			disabled={manager.switching || !manager.available}
+			onchange={(event) => selectSession(event.currentTarget.value)}
+		>
+			{#if !manager.sessions.some((session) => session.id === manager.id)}
+				<option value={manager.id}>New conversation</option>
+			{/if}
+			{#each manager.sessions as session (session.id)}
+				<option value={session.id}
+					>{session.messages
+						.find((message) => message.role === 'user')
+						?.parts[0]?.text.slice(0, 60) || 'Conversation'} · {new Date(
+						session.updatedAt
+					).toLocaleString()}</option
+				>
+			{/each}
+		</select>
+		<button
+			type="button"
+			class="btn shrink-0 btn-secondary"
+			disabled={manager.switching}
+			onclick={() => selectSession('new')}
+			><SquarePen size={16} aria-hidden="true" /> New chat</button
+		>
 	</div>
 	<div
 		{@attach autoscroll}
@@ -185,7 +174,19 @@
 		{/if}
 		{#if chat.messages.length === 0}
 			<div class="flex min-h-full flex-col items-center justify-center gap-5 py-2 text-center">
-				<AssistantOrb size="hero" animated />
+				{#if onstartvoice}
+					<button
+						type="button"
+						class="rounded-full"
+						aria-label="Start voice mode"
+						disabled={Boolean(manager.shortcutBlockedReason)}
+						onclick={onstartvoice}
+					>
+						<AssistantOrb size="hero" animated />
+					</button>
+				{:else}
+					<AssistantOrb size="hero" animated />
+				{/if}
 				<div>
 					<p class="text-xl font-semibold">How can I help at home?</p>
 					<p class="mt-2 text-ink-muted">Ask about your home or tell me what to change.</p>
@@ -214,21 +215,57 @@
 				]}
 				aria-label={message.role === 'user' ? 'You' : 'Assistant'}
 			>
-				{#each message.parts as part, partIndex (partIndex)}
-					{#if part.type === 'text' && part.text}
-						{#if message.role === 'user'}
-							<p
-								class="rounded-2xl rounded-br-md bg-accent-fill px-4 py-2.5 whitespace-pre-wrap text-white"
-							>
-								{part.text}
-							</p>
-						{:else}
-							<MarkdownMessage text={part.text} />
+				{#if (message.metadata as { source?: 'action'; actionCard?: LiveToolCard } | undefined)?.source === 'action'}
+					{@const card = (message.metadata as { actionCard: LiveToolCard }).actionCard}
+					<ToolActionCard
+						kind={card.kind === 'change' ? 'mutation' : 'read'}
+						label={card.label}
+						summary={card.summary || undefined}
+						statusText={LIVE_CARD_STATUS[card.status].text}
+						statusTone={LIVE_CARD_STATUS[card.status].tone}
+						highlight={card.status === 'waiting-confirmation'}
+					>
+						{#if card.status === 'failed' && card.output}
+							<p class="mt-2 text-danger">{card.output}</p>
+						{:else if card.status === 'denied' && card.output}
+							<p class="mt-2 text-ink-muted">{card.output}</p>
+						{:else if card.status === 'done' && card.output}
+							<details class="mt-2">
+								<summary
+									class="inline-flex min-h-11 cursor-pointer items-center text-ink-muted hover:text-ink"
+									>Show result</summary
+								>
+								<pre
+									class="mt-1 max-h-64 overflow-auto rounded-control bg-[#0f1733] p-3 text-xs whitespace-pre-wrap">{formatToolOutput(
+										card.output
+									)}</pre>
+							</details>
 						{/if}
-					{:else if isToolUIPart(part)}
-						<ToolCallCard {part} toolName={getToolOrDynamicToolName(part)} onrespond={respond} />
-					{/if}
-				{/each}
+					</ToolActionCard>
+				{/if}
+				{#if (message.metadata as { source?: 'voice' } | undefined)?.source === 'voice'}
+					<p class="mb-1 inline-flex items-center gap-1 text-xs text-ink-muted">
+						<Mic size={12} aria-hidden="true" />
+						<span>Voice conversation</span>
+					</p>
+				{/if}
+				{#if (message.metadata as { source?: string } | undefined)?.source !== 'action'}
+					{#each message.parts as part, partIndex (partIndex)}
+						{#if part.type === 'text' && part.text}
+							{#if message.role === 'user'}
+								<p
+									class="rounded-2xl rounded-br-md bg-accent-fill px-4 py-2.5 whitespace-pre-wrap text-white"
+								>
+									{part.text}
+								</p>
+							{:else}
+								<MarkdownMessage text={part.text} />
+							{/if}
+						{:else if isToolUIPart(part)}
+							<ToolCallCard {part} toolName={getToolOrDynamicToolName(part)} onrespond={respond} />
+						{/if}
+					{/each}
+				{/if}
 			</article>
 		{/each}
 
@@ -264,6 +301,19 @@
 				bind:value={input}
 				onkeydown={handleKeydown}
 			></textarea>
+			{#if onstartvoice}
+				<button
+					id="start-voice"
+					type="button"
+					class="mb-1.5 btn size-10 min-h-0 shrink-0 rounded-full p-0 btn-secondary"
+					aria-label="Start voice mode"
+					title={manager.shortcutBlockedReason || 'Start voice mode'}
+					disabled={Boolean(manager.shortcutBlockedReason)}
+					onclick={onstartvoice}
+				>
+					<Mic size={18} aria-hidden="true" />
+				</button>
+			{/if}
 			{#if busy}
 				<button
 					type="button"
